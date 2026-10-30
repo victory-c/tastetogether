@@ -76,3 +76,28 @@ describe('coordinator', () => {
     expect(result.cards.every((c) => !c.reasons.includes('Costs $40'))).toBe(true);
   });
 });
+
+describe('ranking honesty after review', () => {
+  it('occasion tags only break ties and never beat a higher min utility', async () => {
+    const { rankCandidates } = await import('@/domain/ranking');
+    const { candidate: cand, constraints: cons } = await import('./helpers');
+    const tagged = cand('tagged', { tagIds: ['urn:tag:event:place:date_night'], tagNames: ['Date night'] });
+    const plain = cand('plain');
+    const out = rankCandidates(
+      [tagged, plain],
+      ['A', 'B'],
+      {
+        A: new Map([
+          ['plain', 2],
+          ['tagged', 1],
+        ]),
+        B: new Map([
+          ['plain', 2],
+          ['tagged', 1],
+        ]),
+      },
+      cons({ occasion: 'date' }),
+    );
+    expect(out.ranked.map((r) => r.candidate.placeId)).toEqual(['plain', 'tagged']);
+  });
+});

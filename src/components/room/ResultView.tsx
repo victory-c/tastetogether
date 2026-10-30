@@ -1,13 +1,15 @@
 'use client';
 
 import { copy } from '@/copy/en';
-import type { Rating, RecommendationResult, Relaxation } from '@/lib/api-types';
+import type { ParticipantKey, Rating, RecommendationResult, Relaxation } from '@/lib/api-types';
 import { Button, Notice } from '@/components/ui';
 import { RecommendationCard } from './RecommendationCard';
+import { ComparisonPanel } from './ComparisonPanel';
 
 export function ResultView({
   result,
   solo = false,
+  names = {},
   onTryAnother,
   onSelect,
   onVisited,
@@ -19,6 +21,7 @@ export function ResultView({
 }: {
   result: RecommendationResult;
   solo?: boolean;
+  names?: Partial<Record<ParticipantKey, string>>;
   onTryAnother: (id: string) => void;
   onSelect: (id: string) => void;
   onVisited: (id: string, feedback: { rating: Rating; revisitIntent: boolean }) => Promise<boolean>;
@@ -33,7 +36,7 @@ export function ResultView({
       {result.stale && <Notice tone="warn">{copy.room.stale}</Notice>}
       {result.historyIncomplete && <Notice tone="warn">{copy.room.historyWarning}</Notice>}
       {result.unknowns.length > 0 && (
-        <div>
+        <div className="text-sm text-stone-500">
           <h3 className="font-medium">{copy.room.unknowns}</h3>
           <ul className="list-disc pl-5 text-sm">
             {result.unknowns.map((item, i) => (
@@ -45,13 +48,29 @@ export function ResultView({
       {result.status === 'success' && (
         <>
           {result.message && <Notice>{result.message}</Notice>}
+          {result.conditionsToConfirm.length > 0 && (
+            <Notice tone="warn">
+              <ul className="list-disc pl-5">
+                {result.conditionsToConfirm.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </Notice>
+          )}
+          {result.exclusionSummary.length > 0 && (
+            <p className="text-sm text-stone-500">
+              {copy.room.filteredOut} {result.exclusionSummary.map(({ reason, count }) => copy.exclusionCounts[reason](count)).join(' · ')}
+            </p>
+          )}
           {result.decisionMode === 'pick' && <h2 className="text-xl font-semibold">{copy.room.ourPick}</h2>}
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className={result.decisionMode === 'three' ? 'grid gap-4 lg:grid-cols-3' : 'grid gap-4'}>
             {result.cards.slice(0, result.decisionMode === 'pick' ? 1 : 3).map((card) => (
               <RecommendationCard
                 key={card.placeId}
                 card={card}
                 solo={solo}
+                names={names}
+                large={result.decisionMode === 'pick'}
                 actionsDisabled={busy || actionsDisabled || result.stale}
                 feedbackDisabled={busy}
                 onTryAnother={onTryAnother}
@@ -60,6 +79,7 @@ export function ResultView({
               />
             ))}
           </div>
+          {!solo && <ComparisonPanel result={result} names={names} />}
           {!result.stale && result.relaxationOptions.length > 0 && (
             <RelaxationOptions options={result.relaxationOptions} busy={busy} onRelax={onRelax} />
           )}

@@ -75,8 +75,9 @@ export const DEMO_PEOPLE: DemoPerson[] = [
           name: 'Cheese Board Collective Pizzeria',
           address: '1512 Shattuck Ave. Berkeley, CA 94709',
         },
-        { id: 'F41BE502-057A-43E5-B6C7-00F4C25B9858', name: 'GIOIA Pizzeria', address: '1586 Hopkins St Berkeley, CA 94707' },
         { id: '09A03EDF-7557-48EE-A543-93F9C46A43C6', name: 'Imm Thai Street Food', address: '2068 University Ave Berkeley, CA 94704' },
+        // Shared with Sample Alex: the demo shows common ground, not just two unrelated lists.
+        { id: '19BD8668-8281-4681-8B38-E77A87F80A4E', name: 'Ramen Shop', address: '5812 College Ave Oakland, CA 94618' },
       ],
     },
     memories: [

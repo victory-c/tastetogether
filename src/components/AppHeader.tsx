@@ -3,9 +3,9 @@ import { copy } from '@/copy/en';
 
 export function AppHeader() {
   return (
-    <header className="border-b border-stone-200 bg-white">
-      <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2" aria-label={copy.brand}>
-        <Link className="flex min-h-11 items-center font-semibold" href="/">
+    <header className="border-b border-orange-100 bg-white">
+      <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-3" aria-label={copy.brand}>
+        <Link className="flex min-h-11 items-center font-semibold text-orange-700" href="/">
           {copy.brand}
         </Link>
         <Link className="flex min-h-11 items-center text-sm" href="/taste">

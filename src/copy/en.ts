@@ -30,6 +30,21 @@ const exclusionReasons: Record<ExclusionReason, string> = {
   dismissed: 'marked as not interested',
   rejected_this_session: 'skipped in this session',
   missing_score: 'not enough signal for both of you',
+  not_a_meal: 'a café, bar or dessert shop rather than a meal',
+};
+
+/** Count-friendly labels for "Filtered out: ..." lines. */
+const exclusionCounts: Record<ExclusionReason, (n: number) => string> = {
+  outside_area: (n) => `${n} outside the area`,
+  over_budget: (n) => `${n} over the price limit`,
+  excluded_cuisine: (n) => `${n} with an excluded cuisine`,
+  closed_permanently: (n) => `${n} permanently closed`,
+  closed_in_window: (n) => `${n} closed at your time`,
+  visited: (n) => `${n} already visited`,
+  dismissed: (n) => `${n} marked not interested`,
+  rejected_this_session: (n) => `${n} skipped this session`,
+  missing_score: (n) => `${n} without enough taste signal`,
+  not_a_meal: (n) => `${n} ${n === 1 ? 'café, bar or dessert shop' : 'cafés, bars and dessert shops'}`,
 };
 
 const relaxations: Record<Relaxation, string> = {
@@ -53,9 +68,11 @@ const status = {
 };
 
 const reasons = {
-  bothRank: (a: string, b: string, pa: number, pb: number) =>
-    `Ranks in the top ${pa}% for ${a}'s taste signals and the top ${pb}% for ${b}'s.`,
-  soloRank: (name: string, p: number) => `Ranks in the top ${p}% for ${name}'s taste signals.`,
+  bothRank: (a: string, b: string, ra: number, rb: number, of: number) =>
+    `#${ra} of ${of} for ${a} and #${rb} of ${of} for ${b}, each ranked by Qloo against your own taste.`,
+  balanced: (a: string, b: string) => `A balanced pick: in the top third for both ${a} and ${b}, so neither of you settles.`,
+  soloRank: (name: string, r: number, of: number) => `#${r} of ${of} for ${name}'s taste, ranked by Qloo.`,
+  occasion: (tags: string[]) => `Qloo tags it as ${tags.slice(0, 2).join(' and ').toLowerCase()}.`,
   basedOn: (name: string, likes: string[]) =>
     likes.length ? `Based on ${name}'s interest in ${likes.slice(0, 2).join(' and ')}.` : `Based on ${name}'s interest signals.`,
   priceFits: (level: number) => `Price level ${'$'.repeat(level)} fits your limit.`,
@@ -89,6 +106,7 @@ export const copy = {
   sampleBadge: 'Sample',
   errors,
   exclusionReasons,
+  exclusionCounts,
   relaxations,
   hours,
   status,

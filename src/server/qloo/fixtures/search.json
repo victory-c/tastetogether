@@ -1,1 +1,11 @@
-{"results":[{"entity_id":"search-1","name":"Search Place","properties":{"price_level":2},"external":{"resy":{"url":"https://resy.com/search"},"google_place":{"place_id":"google-2"}}},{"entity_id":"search-2","name":"Maps Place","external":{"google_place":{"place_id":"google-3"}}}]}
+{
+  "results": [
+    {
+      "entity_id": "search-1",
+      "name": "Search Place",
+      "properties": { "price_level": 2 },
+      "external": { "resy": { "url": "https://resy.com/search" }, "google_place": { "place_id": "google-2" } }
+    },
+    { "entity_id": "search-2", "name": "Maps Place", "external": { "google_place": { "place_id": "google-3" } } }
+  ]
+}

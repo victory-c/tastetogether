@@ -248,6 +248,7 @@ export default function RoomPage() {
             {result && (
               <ResultView
                 result={result}
+                names={Object.fromEntries(session.participants.map((participant) => [participant.key, participant.displayName]))}
                 busy={busy}
                 actionsDisabled={dirty}
                 retryDisabled={!ready || dirty}

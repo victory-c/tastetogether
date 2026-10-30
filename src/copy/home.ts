@@ -1,5 +1,11 @@
 export const home = {
   myTaste: 'My taste',
+  howItWorks: 'How it works',
+  steps: [
+    'Each of you saves the places you love.',
+    'Qloo ranks restaurants for each of you separately.',
+    'We pick places that work for both and skip where either of you has been.',
+  ],
   solo: 'Solo',
   invite: 'Invite a friend',
   startSolo: 'Start solo',

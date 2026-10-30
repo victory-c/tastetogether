@@ -4,5 +4,9 @@
   color-scheme: light;
 }
 body {
-  @apply bg-stone-50 text-stone-900 antialiased;
+  @apply bg-orange-50/30 text-stone-900 antialiased;
+}
+
+::selection {
+  @apply bg-orange-200 text-stone-900;
 }
