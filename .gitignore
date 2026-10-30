@@ -21,3 +21,8 @@ coverage/
 __pycache__/
 .venv/
 *.pyc
+
+# Local data and agent logs
+data/
+logs/
+next-env.d.ts
