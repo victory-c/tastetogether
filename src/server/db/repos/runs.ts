@@ -119,3 +119,19 @@ export async function insertFeedback(f: {
     ],
   );
 }
+
+export async function hasFeedback(
+  runId: string,
+  profileId: string,
+  placeId: string,
+  kind: 'selected' | 'dismissed' | 'visited',
+): Promise<boolean> {
+  return (
+    (await one('SELECT 1 FROM feedback WHERE run_id = ? AND profile_id = ? AND place_id = ? AND kind = ? LIMIT 1', [
+      runId,
+      profileId,
+      placeId,
+      kind,
+    ])) !== null
+  );
+}

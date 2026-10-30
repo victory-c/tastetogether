@@ -57,7 +57,10 @@ export interface ParticipantView {
   profileVersion: number;
   displayName: string;
   positiveEntityIds: string[];
+  /** Names for every signal id, including liked history. Coordinator-internal: never shown to the other person. */
   positiveEntityNames: string[];
+  /** Only the places the person chose to list on their profile. Safe to show in shared results. */
+  displayLikes: string[];
   excludedCuisines: string[];
   priceMax: PriceLevel | null;
   visitedPlaceIds: string[];

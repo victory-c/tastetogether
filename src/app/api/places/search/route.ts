@@ -1,6 +1,7 @@
 import type { PlaceSearchResponse } from '@/lib/api-types';
 import { getProfileByOwner } from '@/server/db/repos/profiles';
 import { AppError, ok, withUser } from '@/server/http';
+import { rateLimit } from '@/server/rate-limit';
 import { QlooBudget, searchPlaces } from '@/server/qloo/client';
 import { QlooError } from '@/server/qloo/types';
 import { BERKELEY } from '@/server/services/demo-data';
@@ -10,6 +11,7 @@ export const dynamic = 'force-dynamic';
 export const GET = withUser(async (req, userId) => {
   const q = new URL(req.url).searchParams.get('q')?.trim() ?? '';
   if (q.length < 2 || q.length > 80) throw new AppError('invalid_input');
+  rateLimit(`search:${userId}`, 60, 10 * 60_000);
 
   const area = (await getProfileByOwner(userId))?.area ?? BERKELEY;
   try {

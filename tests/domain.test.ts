@@ -76,7 +76,8 @@ describe('ranking and selection', () => {
     expect(result.ranked[0]?.candidate.placeId).toBe('y');
     expect(result.missingScores).toEqual([{ placeId: 'missing', reason: 'missing_score', participant: 'B' }]);
     expect(result.ranked.flatMap((r) => Object.values(r.scores)).every((s) => s.utility >= 0 && s.utility <= 1)).toBe(true);
-    expect(result.ranked[0]?.scores.A?.poolSize).toBe(4);
+    // Pool covers only candidates both participants scored (x, y, z).
+    expect(result.ranked[0]?.scores.A?.poolSize).toBe(3);
   });
   it('breaks ties deterministically and reports pool size', () => {
     expect(

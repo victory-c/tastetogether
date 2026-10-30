@@ -75,7 +75,8 @@ export function applyHardFilters(input: FilterInput): FilterOutput {
         if (p.visitedPlaceIds.includes(c.placeId)) return ex('visited', p.key);
       }
     }
-    if (constraints.requireOpen && constraints.timeWindow && hoursStatusAt(c.hours, constraints.timeWindow) === 'closed_at_start') {
+    // Known closed at the chosen time is always excluded; requireOpen additionally holds back unverified hours (decision.ts).
+    if (constraints.timeWindow && hoursStatusAt(c.hours, constraints.timeWindow) === 'closed_at_start') {
       return ex('closed_in_window');
     }
     return null;

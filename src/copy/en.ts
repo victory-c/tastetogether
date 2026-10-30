@@ -49,7 +49,7 @@ const status = {
   needs_clarification: 'We need a bit more information before we can search.',
   no_match: 'No restaurant meets every condition you both set.',
   provider_unavailable: "We couldn't reach our restaurant data source. Nothing was recommended. Please try again.",
-  fewerThanThree: (n: number) => `Only ${n} ${n === 1 ? 'place meets' : 'places meet'} every condition. We won't pad the list.`,
+  fewerThanThree: (n: number) => `Only ${n} ${n === 1 ? 'place passed' : 'places passed'} your filters. We won't pad the list.`,
 };
 
 const reasons = {
@@ -59,8 +59,8 @@ const reasons = {
   basedOn: (name: string, likes: string[]) =>
     likes.length ? `Based on ${name}'s interest in ${likes.slice(0, 2).join(' and ')}.` : `Based on ${name}'s interest signals.`,
   priceFits: (level: number) => `Price level ${'$'.repeat(level)} fits your limit.`,
-  newToBoth: 'Neither of you has it in your history.',
-  newToYou: "It isn't in your history.",
+  newToBoth: 'Neither of you has marked it as visited.',
+  newToYou: "You haven't marked it as visited.",
   distance: (miles: string) => `About ${miles} mi away (straight-line).`,
 };
 
@@ -79,6 +79,7 @@ const conditions = {
   hoursRequired: (n: number) =>
     `${n} matching ${n === 1 ? 'place has' : 'places have'} unverified hours. Turn off "Must be open" or confirm hours yourself.`,
   partnerMissing: 'Waiting for your friend to join.',
+  budget: (note: string) => `Check the price yourself: we can't verify "${note}", only the price level.`,
   confirmations: 'Both of you need to confirm the conditions.',
 };
 

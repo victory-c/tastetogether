@@ -36,6 +36,7 @@ export default function RoomPage() {
         setSession((previous) => (dirty && !force && previous ? { ...data.session, version: previous.version } : data.session));
         if (force || !dirty) setDraft(data.session.constraints);
         setResult(data.session.latestResult);
+        return data.session;
       } catch (e) {
         setMessage(
           e instanceof ApiClientError && e.code === 'not_found'
@@ -54,12 +55,20 @@ export default function RoomPage() {
     void refresh();
   }, [refresh]);
   useEffect(() => {
-    if (!session || !['waiting_for_partner', 'pending_confirmation', 'querying'].includes(session.state)) return;
-    const timer = window.setInterval(() => {
+    if (!session) return;
+    const update = () => {
       if (!document.hidden && !busy) void refresh();
-    }, 4000);
-    return () => window.clearInterval(timer);
-  }, [session, refresh, busy]);
+    };
+    const interval = ['waiting_for_partner', 'pending_confirmation', 'querying'].includes(session.state) ? 4000 : 10000;
+    const timer = window.setInterval(update, interval);
+    window.addEventListener('focus', update);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', update);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, [session?.state, refresh, busy]);
   async function save(next: Constraints) {
     if (!session) return false;
     setBusy(true);
@@ -76,9 +85,9 @@ export default function RoomPage() {
       return true;
     } catch (e) {
       if (e instanceof ApiClientError && e.code === 'conflict') {
+        const latest = await refresh(true);
         setDirty(false);
-        await refresh(true);
-        setMessage(copy.room.conflict);
+        setMessage(latest && latest.version !== session.version ? copy.room.conflict : e.message);
       } else setMessage(errorMessage(e));
       return false;
     } finally {
@@ -98,9 +107,9 @@ export default function RoomPage() {
       setResult(data.session.latestResult);
     } catch (e) {
       if (e instanceof ApiClientError && e.code === 'conflict') {
-        await refresh(true);
+        const latest = await refresh(true);
         setDirty(false);
-        setMessage(copy.room.conflict);
+        setMessage(latest && latest.version !== session.version ? copy.room.conflict : e.message);
       } else setMessage(errorMessage(e));
     } finally {
       setBusy(false);
@@ -136,14 +145,16 @@ export default function RoomPage() {
     }
   }
   async function feedback(placeId: string, kind: 'selected' | 'visited', values?: { rating: Rating; revisitIntent: boolean }) {
-    if (!result?.runId) return;
+    if (!result?.runId) return false;
     setBusy(true);
     setMessage('');
     try {
       await api('/api/feedback', { method: 'POST', body: { runId: result.runId, placeId, kind, ...values } });
       setMessage(kind === 'visited' ? copy.room.feedbackSaved : copy.room.selected);
+      return true;
     } catch (e) {
       setMessage(errorMessage(e));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -161,7 +172,8 @@ export default function RoomPage() {
       setBusy(false);
     }
   }
-  const ready = session?.participants.length === 2 && session.participants.every((p) => p.joined && p.confirmed);
+  const joined = session?.participants.length === 2 && session.participants.every((p) => p.joined);
+  const ready = joined && session?.participants.every((p) => p.confirmed);
   function relax(r: Relaxation) {
     if (draft) void save({ ...draft, relaxations: [...new Set([...draft.relaxations, r])] });
   }
@@ -225,7 +237,7 @@ export default function RoomPage() {
               <Button variant="secondary" disabled={busy || !dirty} onClick={() => void save(draft)}>
                 {copy.room.save}
               </Button>
-              <Button variant="secondary" disabled={busy || dirty} onClick={() => void confirm()}>
+              <Button variant="secondary" disabled={busy || dirty || !joined} onClick={() => void confirm()}>
                 {copy.room.confirm}
               </Button>
               <Button disabled={busy || dirty || !ready} onClick={() => void generate()}>
@@ -236,11 +248,12 @@ export default function RoomPage() {
             {result && (
               <ResultView
                 result={result}
-                busy={busy || dirty}
+                busy={busy}
+                actionsDisabled={dirty}
                 retryDisabled={!ready || dirty}
                 onTryAnother={(placeId) => void reject(placeId)}
                 onSelect={(placeId) => void feedback(placeId, 'selected')}
-                onVisited={(placeId, values) => void feedback(placeId, 'visited', values)}
+                onVisited={(placeId, values) => feedback(placeId, 'visited', values)}
                 onRelax={relax}
                 onRetry={() => {
                   if (ready && !dirty) void generate();

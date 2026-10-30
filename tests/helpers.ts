@@ -34,6 +34,7 @@ export const participant = (key: 'A' | 'B', patch: Partial<ParticipantView> = {}
   displayName: key,
   positiveEntityIds: [key],
   positiveEntityNames: [],
+  displayLikes: [],
   excludedCuisines: [],
   priceMax: null,
   visitedPlaceIds: [],

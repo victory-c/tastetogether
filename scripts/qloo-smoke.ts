@@ -19,6 +19,7 @@ const A: ParticipantView = {
   displayName: 'Alex',
   positiveEntityIds: ['FB20C89B-2337-4F71-9B28-DF2A7360B73A'],
   positiveEntityNames: ['Chez Panisse'],
+  displayLikes: ['Chez Panisse'],
   visitedPlaceIds: ['EC35A34F-462E-431B-AD3A-08D722667FB3'],
 };
 const B: ParticipantView = {
@@ -28,6 +29,7 @@ const B: ParticipantView = {
   displayName: 'Jordan',
   positiveEntityIds: ['74018DD4-A14F-4AB3-9859-55F140F1DA20'],
   positiveEntityNames: ['Cheese Board Pizza'],
+  displayLikes: ['Cheese Board Pizza'],
   visitedPlaceIds: [],
   excludedCuisines: ['sushi'],
 };

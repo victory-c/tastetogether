@@ -23,6 +23,7 @@ export async function participantView(profile: ProfileRecord, key: ParticipantKe
     displayName: profile.displayName,
     positiveEntityIds: ids,
     positiveEntityNames: ids.map((id) => signals.get(id)!),
+    displayLikes: profile.positiveEntities.map((e) => e.name),
     excludedCuisines: profile.excludedCuisines,
     priceMax: profile.priceMax,
     visitedPlaceIds: memories.filter((m) => m.status === 'visited' && m.placeId).map((m) => m.placeId!),

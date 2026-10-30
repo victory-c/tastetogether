@@ -9,19 +9,22 @@ import { FeedbackForm } from './FeedbackForm';
 export function RecommendationCard({
   card,
   solo,
-  busy,
+  actionsDisabled,
+  feedbackDisabled,
   onTryAnother,
   onSelect,
   onVisited,
 }: {
   card: CardType;
   solo: boolean;
-  busy: boolean;
+  actionsDisabled: boolean;
+  feedbackDisabled: boolean;
   onTryAnother: (id: string) => void;
   onSelect: (id: string) => void;
-  onVisited: (id: string, feedback: { rating: Rating; revisitIntent: boolean }) => void;
+  onVisited: (id: string, feedback: { rating: Rating; revisitIntent: boolean }) => Promise<boolean>;
 }) {
   const [feedback, setFeedback] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   return (
     <Card className="space-y-3">
       <h3 className="text-xl font-semibold">{card.name}</h3>
@@ -78,17 +81,29 @@ export function RecommendationCard({
         </div>
       </details>
       <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" disabled={busy} onClick={() => onTryAnother(card.placeId)}>
+        <Button variant="secondary" disabled={actionsDisabled} onClick={() => onTryAnother(card.placeId)}>
           {copy.labels.tryAnother}
         </Button>
-        <Button disabled={busy} onClick={() => onSelect(card.placeId)}>
+        <Button disabled={actionsDisabled} onClick={() => onSelect(card.placeId)}>
           {copy.room.choose}
         </Button>
-        <Button variant="secondary" disabled={busy} onClick={() => setFeedback(!feedback)}>
+        <Button variant="secondary" disabled={feedbackDisabled || submitted} onClick={() => setFeedback(!feedback)}>
           {copy.room.visited}
         </Button>
       </div>
-      {feedback && <FeedbackForm busy={busy} onVisited={(value) => onVisited(card.placeId, value)} />}
+      {feedback && (
+        <FeedbackForm
+          busy={feedbackDisabled}
+          onVisited={async (value) => {
+            const success = await onVisited(card.placeId, value);
+            if (success) {
+              setSubmitted(true);
+              setFeedback(false);
+            }
+            return success;
+          }}
+        />
+      )}
     </Card>
   );
 }

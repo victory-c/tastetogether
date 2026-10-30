@@ -9,7 +9,7 @@ export function FeedbackForm({
   onVisited,
   busy,
 }: {
-  onVisited: (feedback: { rating: Rating; revisitIntent: boolean }) => void;
+  onVisited: (feedback: { rating: Rating; revisitIntent: boolean }) => Promise<boolean>;
   busy: boolean;
 }) {
   const group = useId();
@@ -20,7 +20,7 @@ export function FeedbackForm({
       className="space-y-3 border-t border-stone-200 pt-3"
       onSubmit={(e) => {
         e.preventDefault();
-        if (rating && revisit) onVisited({ rating, revisitIntent: revisit === 'yes' });
+        if (rating && revisit) void onVisited({ rating, revisitIntent: revisit === 'yes' });
       }}
     >
       <h4 className="font-semibold">{copy.room.feedbackTitle}</h4>

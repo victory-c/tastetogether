@@ -35,16 +35,13 @@ export function rankCandidates(
   affinities: AffinityTable,
   constraints: Constraints,
 ): RankOutput {
+  // Rank only over candidates every participant has a score for, so each person's
+  // utilities are computed over the same pool and min(uA, uB) compares like with like.
+  const scoredByAll = candidates.filter((c) => participants.every((k) => affinities[k]?.has(c.placeId)));
   const utilities = new Map<ParticipantKey, Map<string, ParticipantScore>>();
   for (const key of participants) {
-    const table = affinities[key];
-    // Only rank among candidates still in play so utilities reflect the filtered pool.
-    const inPlay = new Map<string, number>();
-    for (const c of candidates) {
-      const a = table?.get(c.placeId);
-      if (a !== undefined) inPlay.set(c.placeId, a);
-    }
-    utilities.set(key, rankUtilities(inPlay));
+    const table = affinities[key]!;
+    utilities.set(key, rankUtilities(new Map(scoredByAll.map((c) => [c.placeId, table.get(c.placeId)!]))));
   }
 
   const ranked: ScoredCandidate[] = [];
@@ -55,7 +52,7 @@ export function rankCandidates(
     for (const key of participants) {
       const s = utilities.get(key)?.get(c.placeId);
       if (s) scores[key] = s;
-      else missing ??= key;
+      else if (!affinities[key]?.has(c.placeId)) missing ??= key;
     }
     if (missing) {
       missingScores.push({ placeId: c.placeId, reason: 'missing_score', participant: missing });

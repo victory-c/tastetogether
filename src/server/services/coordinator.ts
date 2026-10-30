@@ -154,11 +154,12 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
   };
   const candidateIds = pool.map((c) => c.placeId);
   // Surfaced through result.historyIncomplete (the UI shows one warning), not duplicated in unknowns.
-  const historyIncomplete = constraints.excludeVisited && participants.some((p) => p.hasUnresolvedHistory);
+  const historyIncomplete = noveltyApplied(constraints) && participants.some((p) => p.hasUnresolvedHistory);
   const exclusionSummary = summarizeExclusions(excluded);
 
   const unknowns: string[] = [];
   if (constraints.budgetNote) unknowns.push(copy.unknowns.budgetNote(constraints.budgetNote));
+  const budgetToConfirm = constraints.budgetNote ? [copy.conditions.budget(constraints.budgetNote)] : [];
   if (missingScores.length) unknowns.push(copy.unknowns.partialScores(missingScores.length));
 
   // 2. Nothing selectable.
@@ -224,6 +225,7 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
     result: {
       ...base,
       status: 'success',
+      conditionsToConfirm: budgetToConfirm,
       cards,
       unknowns,
       historyIncomplete,
@@ -235,6 +237,11 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
     candidateIds,
     evidence,
   };
+}
+
+/** Whether visited places were actually excluded for this run (the allow_revisits relaxation turns it off). */
+function noveltyApplied(constraints: Constraints): boolean {
+  return constraints.excludeVisited && !constraints.relaxations.includes('allow_revisits');
 }
 
 function emptyResult(input: CoordinatorInput): RecommendationResult {
@@ -305,9 +312,10 @@ function toCard(
 
   const userProvided: string[] = [];
   for (const p of participants) {
-    if (p.positiveEntityNames.length) userProvided.push(`${p.displayName} likes ${p.positiveEntityNames.slice(0, 3).join(', ')}`);
+    if (p.displayLikes.length) userProvided.push(`${p.displayName} likes ${p.displayLikes.slice(0, 3).join(', ')}`);
   }
-  if (constraints.excludeVisited) userProvided.push('Excluding places either of you has visited');
+  if (noveltyApplied(constraints))
+    userProvided.push(participants.length > 1 ? 'Excluding places either of you has visited' : "Excluding places you've visited");
   const qlooSignals = participants.map((p) => {
     const sc = s.scores[p.key as ParticipantKey]!;
     return `Rank ${sc.rank + 1} of ${sc.poolSize} for ${p.displayName}'s taste signals`;
@@ -322,8 +330,8 @@ function toCard(
     cuisines,
     hoursStatus: s.hoursStatus,
     hoursText,
-    novelty: constraints.excludeVisited && !constraints.relaxations.includes('allow_revisits') ? 'new_to_everyone' : 'not_checked',
-    reasons: templateReasons(s, participants, constraints.excludeVisited, priceMax),
+    novelty: noveltyApplied(constraints) ? 'new_to_everyone' : 'not_checked',
+    reasons: templateReasons(s, participants, noveltyApplied(constraints), priceMax),
     evidence: { userProvided, qlooSignals, venueFacts },
     links,
     utilities: Object.fromEntries(Object.entries(s.scores).map(([k, v]) => [k, v!.utility])),

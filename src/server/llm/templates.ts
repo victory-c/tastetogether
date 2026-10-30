@@ -27,7 +27,7 @@ export function templateReasons(
     );
   } else if (a) {
     out.push(copy.reasons.soloRank(a.displayName, topPct(score('A').rank, score('A').poolSize)));
-    out.push(copy.reasons.basedOn(a.displayName, a.positiveEntityNames));
+    out.push(copy.reasons.basedOn(a.displayName, a.displayLikes));
   }
   if (excludeVisited) out.push(b ? copy.reasons.newToBoth : copy.reasons.newToYou);
   if (priceMax !== null && s.candidate.priceLevel !== null) out.push(copy.reasons.priceFits(s.candidate.priceLevel));

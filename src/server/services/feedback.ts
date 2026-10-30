@@ -2,10 +2,10 @@ import 'server-only';
 import type { FeedbackInput } from '@/lib/api-types';
 import { createMemory, findMemoryByPlace, updateMemory } from '../db/repos/memories';
 import { getProfileById, getProfileByOwner } from '../db/repos/profiles';
-import { getRun, insertFeedback } from '../db/repos/runs';
+import { getRun, hasFeedback, insertFeedback, latestRunForSession } from '../db/repos/runs';
 import * as sessionRepo from '../db/repos/sessions';
 import { AppError } from '../http';
-import { accessSession } from './sessions';
+import { accessSession, isRunStale } from './sessions';
 
 /**
  * Only an explicit "I went" writes a visited memory, and only into the caller's own profile.
@@ -14,6 +14,7 @@ import { accessSession } from './sessions';
 export async function recordFeedback(userId: string, input: FeedbackInput): Promise<void> {
   const run = await getRun(input.runId);
   if (!run) throw new AppError('not_found');
+  const card = run.result.cards.find((c) => c.placeId === input.placeId);
 
   let profileId: string;
   if (run.sessionId) {
@@ -23,7 +24,15 @@ export async function recordFeedback(userId: string, input: FeedbackInput): Prom
     const p = await getProfileById(pid);
     if (!p || (p.ownerId !== userId && !(isDemo && session.ownerId === userId))) throw new AppError('forbidden');
     profileId = p.id;
-    if (input.kind === 'selected') await sessionRepo.setState(session.id, 'completed');
+    if (!card) throw new AppError('invalid_input');
+    if (input.kind === 'selected') {
+      // Choosing only counts on the room's current, fresh result; a stale tab can't close the room.
+      const latest = await latestRunForSession(session.id);
+      if (latest?.id !== run.id || (await isRunStale(run, session))) {
+        throw new AppError('conflict', 'These results are out of date. Generate again before choosing.');
+      }
+      await sessionRepo.setState(session.id, 'completed');
+    }
   } else {
     if (run.ownerId !== userId) throw new AppError('not_found');
     const p = await getProfileByOwner(userId);
@@ -31,9 +40,10 @@ export async function recordFeedback(userId: string, input: FeedbackInput): Prom
     profileId = p.id;
   }
 
-  const card = run.result.cards.find((c) => c.placeId === input.placeId);
   if (!card) throw new AppError('invalid_input');
 
+  // A repeated "We went here" for the same recommendation updates the rating without counting another visit.
+  const repeatVisit = input.kind === 'visited' && (await hasFeedback(run.id, profileId, input.placeId, 'visited'));
   await insertFeedback({
     runId: run.id,
     profileId,
@@ -51,7 +61,7 @@ export async function recordFeedback(userId: string, input: FeedbackInput): Prom
     revisitIntent: input.revisitIntent ?? null,
     visitDate: new Date().toISOString().slice(0, 10),
   };
-  if (existing) await updateMemory(profileId, existing.id, { ...fields, visitCount: (existing.visitCount ?? 0) + 1 });
+  if (existing) await updateMemory(profileId, existing.id, { ...fields, visitCount: (existing.visitCount ?? 0) + (repeatVisit ? 0 : 1) });
   else
     await createMemory(profileId, { placeId: card.placeId, name: card.name, address: card.address, visitCount: 1, ...fields }, 'feedback');
 }

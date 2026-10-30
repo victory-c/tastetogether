@@ -13,25 +13,32 @@ export default function JoinPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [token, setToken] = useState('');
-  const [next, setNext] = useState('');
   const [hasProfile, setHasProfile] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   useEffect(() => {
-    setToken(window.location.hash.slice(1));
-    setNext(window.location.pathname + window.location.hash);
+    const hashToken = window.location.hash.slice(1);
+    let storedToken = '';
+    try {
+      if (hashToken) sessionStorage.setItem(`tt_invite:${id}`, hashToken);
+      else storedToken = sessionStorage.getItem(`tt_invite:${id}`) ?? '';
+    } catch {}
+    setToken(hashToken || storedToken);
     api<ProfileResponse>('/api/profile')
       .then(({ profile }) => setHasProfile(!!profile))
       .catch((e) => setMessage(errorMessage(e)))
       .finally(() => setLoaded(true));
-  }, []);
+  }, [id]);
   async function join() {
     setBusy(true);
     setMessage('');
     try {
       await api(`/api/sessions/${id}/join`, { method: 'POST', body: { token, consent: true } });
+      try {
+        sessionStorage.removeItem(`tt_invite:${id}`);
+      } catch {}
       router.replace(`/room/${id}`);
     } catch (e) {
       setMessage(e instanceof ApiClientError && e.code === 'session_expired' ? copy.room.inviteExpired : errorMessage(e));
@@ -47,7 +54,7 @@ export default function JoinPage() {
       ) : !hasProfile ? (
         <Notice>
           {copy.room.joinProfile}{' '}
-          <Link className="underline" href={`/taste?next=${encodeURIComponent(next)}`}>
+          <Link className="underline" href={`/taste?next=/join/${id}`}>
             {copy.room.profileLink}
           </Link>
         </Notice>

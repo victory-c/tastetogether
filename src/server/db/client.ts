@@ -22,10 +22,15 @@ export async function migrate(db: Client): Promise<void> {
 export async function db(): Promise<Client> {
   if (!client) {
     client = createClient({ url: databaseUrl(), authToken: process.env.DATABASE_AUTH_TOKEN });
-    ready = migrate(client);
+    // A failed cold-start migration must not poison this instance: reset so the next request retries.
+    ready = migrate(client).catch((err: unknown) => {
+      client = null;
+      ready = null;
+      throw err;
+    });
   }
   await ready;
-  return client;
+  return client!;
 }
 
 /** Test hook: point the module at an isolated database. */

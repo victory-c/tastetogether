@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AppHeader } from '@/components/AppHeader';
 import { History } from '@/components/taste/History';
 import { ProfileForm } from '@/components/taste/ProfileForm';
@@ -10,6 +11,16 @@ import { api, ApiClientError } from '@/lib/api-client';
 import type { ProfileDTO, ProfileResponse } from '@/lib/api-types';
 
 export default function TastePage() {
+  return (
+    <Suspense fallback={<p role="status">{copy.taste.loading}</p>}>
+      <TasteContent />
+    </Suspense>
+  );
+}
+
+function TasteContent() {
+  const router = useRouter();
+  const next = useSearchParams().get('next');
   const [profile, setProfile] = useState<ProfileDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,7 +49,13 @@ export default function TastePage() {
         {error && <Notice tone="error">{error}</Notice>}
         {!loading && !error && (
           <>
-            <ProfileForm profile={profile} onSaved={setProfile} />
+            <ProfileForm
+              profile={profile}
+              onSaved={(saved) => {
+                setProfile(saved);
+                if (next && (/^\/(join|room)\/[0-9a-fA-F-]{36}$/.test(next) || next === '/solo' || next === '/room/new')) router.push(next);
+              }}
+            />
             {profile && <History readOnly={profile.isDemo} />}
           </>
         )}

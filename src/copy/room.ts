@@ -60,6 +60,8 @@ export const room = {
   clarify: 'Conditions to confirm',
   leftOut: (count: number, reason: string) => `${count} places were left out: ${reason}`,
   relaxChoice: 'Choose whether to relax a condition.',
+  relaxationsNote: 'These choices loosen the original conditions.',
+  removeRelaxation: (label: string) => `Remove ${label}`,
   retry: 'Retry',
   participants: 'Participants',
   joined: 'Joined',

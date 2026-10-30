@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { copy } from '@/copy/en';
 import type { Constraints, Occasion, PriceLevel } from '@/lib/api-types';
-import { Field, inputClass } from '@/components/ui';
+import { Button, Field, inputClass } from '@/components/ui';
 
 const areas = [
   { label: 'Downtown Berkeley', lat: 37.8716, lon: -122.2727 },
@@ -30,7 +30,6 @@ export function ConstraintsForm({
 }) {
   const update = (patch: Partial<Constraints>) => onChange({ ...value, ...patch });
   const area = value.area;
-  const time = value.timeWindow ?? { date: '', start: '', end: '' };
   // Keep incomplete input locally so a time window is submitted only when complete.
   return (
     <fieldset disabled={disabled} className="space-y-4 disabled:opacity-60">
@@ -97,7 +96,26 @@ export function ConstraintsForm({
           />
         </Field>
       </div>
-      <TimeFields time={time} onChange={(window) => update({ timeWindow: window })} />
+      {value.relaxations.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm">{copy.room.relaxationsNote}</p>
+          <div className="flex flex-wrap gap-2">
+            {value.relaxations.map((r) => (
+              <span key={r} className="inline-flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-sm">
+                {copy.relaxations[r]}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => update({ relaxations: value.relaxations.filter((item) => item !== r) })}
+                >
+                  {copy.room.removeRelaxation(copy.relaxations[r])}
+                </Button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      <TimeFields time={value.timeWindow} onChange={(window) => update({ timeWindow: window })} />
       <label className="flex gap-2">
         <input type="checkbox" checked={value.requireOpen} onChange={(e) => update({ requireOpen: e.target.checked })} />
         {copy.room.requireOpen}
@@ -138,21 +156,23 @@ export function ConstraintsForm({
   );
 }
 
-function TimeFields({
-  time,
-  onChange,
-}: {
-  time: { date: string; start: string; end: string };
-  onChange: (value: Constraints['timeWindow']) => void;
-}) {
-  const [draft, setDraft] = useState(time);
+function TimeFields({ time, onChange }: { time: Constraints['timeWindow']; onChange: (value: Constraints['timeWindow']) => void }) {
+  const [draft, setDraft] = useState(time ?? { date: '', start: '', end: '' });
+  const emitted = useRef<Constraints['timeWindow'] | undefined>(undefined);
   useEffect(() => {
-    if (time.date || time.start || time.end) setDraft(time);
-  }, [time.date, time.start, time.end]);
+    if (emitted.current !== undefined && emitted.current === time) {
+      emitted.current = undefined;
+      return;
+    }
+    emitted.current = undefined;
+    setDraft(time ?? { date: '', start: '', end: '' });
+  }, [time?.date, time?.start, time?.end]);
   const change = (key: keyof typeof draft, value: string) => {
     const next = { ...draft, [key]: value };
     setDraft(next);
-    onChange(next.date && next.start && next.end ? next : null);
+    const window = next.date && next.start && next.end ? next : null;
+    emitted.current = window;
+    onChange(window);
   };
   return (
     <div className="grid gap-4 sm:grid-cols-3">

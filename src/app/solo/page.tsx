@@ -22,7 +22,7 @@ export default function SoloPage() {
     Promise.all([api<ProfileResponse>('/api/profile'), api<{ result: RecommendationResult | null }>('/api/recommendations')])
       .then(([profile, latest]) => {
         if (profile.profile) setConstraints(initialConstraints(profile.profile));
-        setResult(latest.result);
+        setResult(latest.result ? { ...latest.result, stale: true } : null);
       })
       .catch((e) => setMessage(errorMessage(e)))
       .finally(() => setLoaded(true));
@@ -46,14 +46,16 @@ export default function SoloPage() {
     }
   }
   async function feedback(placeId: string, kind: 'selected' | 'visited', values?: { rating: Rating; revisitIntent: boolean }) {
-    if (!result?.runId) return;
+    if (!result?.runId) return false;
     setBusy(true);
     setMessage('');
     try {
       await api('/api/feedback', { method: 'POST', body: { runId: result.runId, placeId, kind, ...values } });
       setMessage(kind === 'visited' ? copy.room.feedbackSaved : copy.room.selected);
+      return true;
     } catch (e) {
       setMessage(errorMessage(e));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -79,8 +81,21 @@ export default function SoloPage() {
         </Notice>
       ) : (
         <>
-          <ConstraintsForm value={constraints} onChange={setConstraints} disabled={busy} />
-          <Button disabled={busy} onClick={() => void generate()}>
+          <ConstraintsForm
+            value={constraints}
+            onChange={(value) => {
+              setConstraints(value);
+              setResult((previous) => (previous ? { ...previous, stale: true } : previous));
+            }}
+            disabled={busy}
+          />
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setRejected([]);
+              void generate(constraints, []);
+            }}
+          >
             {copy.room.find}
           </Button>
           {querying && <p>{copy.room.finding}</p>}
@@ -95,7 +110,7 @@ export default function SoloPage() {
                 void generate(constraints, next);
               }}
               onSelect={(id) => void feedback(id, 'selected')}
-              onVisited={(id, values) => void feedback(id, 'visited', values)}
+              onVisited={(id, values) => feedback(id, 'visited', values)}
               onRelax={relax}
               onRetry={() => void generate()}
             />

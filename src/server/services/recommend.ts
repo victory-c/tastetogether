@@ -7,6 +7,7 @@ import { getProfileById } from '../db/repos/profiles';
 import { getRunByIdempotencyKey, insertRun, latestSoloRun } from '../db/repos/runs';
 import * as sessionRepo from '../db/repos/sessions';
 import { AppError } from '../http';
+import { rateLimit } from '../rate-limit';
 import { coordinate, ProviderUnavailableError, type QlooPort, type ReasonWriter } from './coordinator';
 import { participantView } from './participants';
 import { requireProfile } from './profiles';
@@ -34,7 +35,7 @@ const writeReasons: ReasonWriter = async (cards, participants, constraints, desc
   llmReasons(
     factsFor(
       cards,
-      participants.map((p) => ({ name: p.displayName, likes: p.positiveEntityNames.slice(0, 3) })),
+      participants.map((p) => ({ name: p.displayName, likes: p.displayLikes.slice(0, 3) })),
       constraints.occasion,
       descriptions,
     ),
@@ -52,6 +53,7 @@ async function execute(opts: {
 }): Promise<RecommendationResult> {
   const prior = await getRunByIdempotencyKey(opts.ownerId, opts.idempotencyKey);
   if (prior) return prior.result;
+  rateLimit(`run:${opts.ownerId}`, 20, 10 * 60_000);
   const budget = new QlooBudget(QLOO_CALLS_PER_RUN);
   const runId = crypto.randomUUID();
   const out = await coordinate({

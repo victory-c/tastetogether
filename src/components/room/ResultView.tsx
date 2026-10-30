@@ -15,16 +15,18 @@ export function ResultView({
   onRetry,
   busy,
   retryDisabled = false,
+  actionsDisabled = false,
 }: {
   result: RecommendationResult;
   solo?: boolean;
   onTryAnother: (id: string) => void;
   onSelect: (id: string) => void;
-  onVisited: (id: string, feedback: { rating: Rating; revisitIntent: boolean }) => void;
+  onVisited: (id: string, feedback: { rating: Rating; revisitIntent: boolean }) => Promise<boolean>;
   onRelax: (relaxation: Relaxation) => void;
   onRetry: () => void;
   busy: boolean;
   retryDisabled?: boolean;
+  actionsDisabled?: boolean;
 }) {
   return (
     <section className="space-y-4">
@@ -50,13 +52,17 @@ export function ResultView({
                 key={card.placeId}
                 card={card}
                 solo={solo}
-                busy={busy || result.stale}
+                actionsDisabled={busy || actionsDisabled || result.stale}
+                feedbackDisabled={busy}
                 onTryAnother={onTryAnother}
                 onSelect={onSelect}
                 onVisited={onVisited}
               />
             ))}
           </div>
+          {!result.stale && result.relaxationOptions.length > 0 && (
+            <RelaxationOptions options={result.relaxationOptions} busy={busy} onRelax={onRelax} />
+          )}
         </>
       )}
       {result.status === 'needs_clarification' && (
@@ -78,14 +84,9 @@ export function ResultView({
               <li key={reason}>{copy.room.leftOut(count, copy.exclusionReasons[reason])}</li>
             ))}
           </ul>
-          <p>{copy.room.relaxChoice}</p>
-          <div className="flex flex-wrap gap-2">
-            {result.relaxationOptions.map((r) => (
-              <Button key={r} variant="secondary" disabled={busy} onClick={() => onRelax(r)}>
-                {copy.relaxations[r]}
-              </Button>
-            ))}
-          </div>
+          {!result.stale && result.relaxationOptions.length > 0 && (
+            <RelaxationOptions options={result.relaxationOptions} busy={busy} onRelax={onRelax} />
+          )}
         </>
       )}
       {result.status === 'provider_unavailable' && (
@@ -97,5 +98,28 @@ export function ResultView({
         </>
       )}
     </section>
+  );
+}
+
+function RelaxationOptions({
+  options,
+  busy,
+  onRelax,
+}: {
+  options: Relaxation[];
+  busy: boolean;
+  onRelax: (relaxation: Relaxation) => void;
+}) {
+  return (
+    <>
+      <p>{copy.room.relaxChoice}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((r) => (
+          <Button key={r} variant="secondary" disabled={busy} onClick={() => onRelax(r)}>
+            {copy.relaxations[r]}
+          </Button>
+        ))}
+      </div>
+    </>
   );
 }
