@@ -16,16 +16,19 @@ const externalSource = <T extends z.ZodRawShape>(shape: T) =>
     .transform((v) => (Array.isArray(v) ? (v[0] ?? null) : v))
     .nullish();
 
-export const qlooTagSchema = z.object({
-  id: z.string(),
-  name: z.string().nullish(),
-});
+/** /v2/insights tags carry `id`; /search tags carry `tag_id`. Normalize to `id`; drop tags with neither. */
+export const qlooTagSchema = z
+  .object({ id: z.string().nullish(), tag_id: z.string().nullish(), name: z.string().nullish() })
+  .transform((t) => ({ id: t.id ?? t.tag_id ?? '', name: t.name ?? null }));
 
 export const qlooEntitySchema = z.object({
   entity_id: z.string(),
   name: z.string(),
   location: z.object({ lat: z.number(), lon: z.number() }).partial().nullish(),
-  tags: z.array(qlooTagSchema).nullish(),
+  tags: z
+    .array(qlooTagSchema)
+    .transform((tags) => tags.filter((t) => t.id !== ''))
+    .nullish(),
   query: z.object({ affinity: z.number().nullish(), distance: z.number().nullish() }).partial().nullish(),
   properties: z
     .object({
