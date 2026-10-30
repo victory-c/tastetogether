@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowUpRight, Share2, X } from "lucide-react";
-import { useEffect } from "react";
+import { AnimatePresence, motion } from 'motion/react';
+import { ArrowUpRight, Share2, X } from 'lucide-react';
+import { useEffect } from 'react';
 
-import { openLabel } from "@/lib/client/format";
-import type { Pick } from "@/lib/taste/types";
+import { openLabel } from '@/lib/client/format';
+import type { Pick } from '@/lib/taste/types';
 
 const CONFETTI = Array.from({ length: 28 }, (_, i) => i);
-const COLORS = ["var(--color-a)", "var(--color-b)", "#c447b8", "var(--color-amber)", "var(--color-mint)"];
+const COLORS = ['var(--color-a)', 'var(--color-b)', '#c447b8', 'var(--color-amber)', 'var(--color-mint)'];
 
 export function Celebration({
   pick,
@@ -29,9 +29,9 @@ export function Celebration({
 }) {
   useEffect(() => {
     if (!pick) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [pick, onClose]);
 
   return (
@@ -60,7 +60,7 @@ export function Celebration({
                   opacity: 0,
                   rotate: 360,
                 }}
-                transition={{ duration: 1.4, ease: "easeOut" }}
+                transition={{ duration: 1.4, ease: 'easeOut' }}
               />
             ))}
           </div>
@@ -68,7 +68,7 @@ export function Celebration({
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 22 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 22 }}
             className="relative w-full max-w-md overflow-hidden rounded-[32px] bg-paper shadow-lift"
             onClick={(e) => e.stopPropagation()}
           >
@@ -93,10 +93,12 @@ export function Celebration({
             </div>
             <div className="space-y-4 p-6">
               <p className="text-ink-soft">
-                <span className="font-semibold text-a-deep">{aName}</span> &amp; <span className="font-semibold text-b-deep">{bName}</span> — we saved this to
-                your memory, so we won&apos;t suggest it again next time.
+                <span className="font-semibold text-a-deep">{aName}</span> &amp; <span className="font-semibold text-b-deep">{bName}</span>{' '}
+                — we saved this to your memory, so we won&apos;t suggest it again next time.
               </p>
-              <p className="text-sm text-ink-soft">{openLabel(pick.open, when).text}. Hours come from Qloo; double-check before you head out.</p>
+              <p className="text-sm text-ink-soft">
+                {openLabel(pick.open, when).text}. Hours come from Qloo; double-check before you head out.
+              </p>
               <div className="flex flex-wrap gap-2">
                 <a
                   href={pick.mapsUrl}
@@ -111,7 +113,7 @@ export function Celebration({
                   onClick={onShare}
                   className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2.5 text-sm font-semibold"
                 >
-                  <Share2 className="size-4" /> {copied ? "Link copied!" : "Send to " + bName}
+                  <Share2 className="size-4" /> {copied ? 'Link copied!' : 'Send to ' + bName}
                 </button>
               </div>
             </div>

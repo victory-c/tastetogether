@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { motion } from "motion/react";
+import { motion } from 'motion/react';
 
-import type { Person, TasteDna } from "@/lib/taste/types";
+import type { Person, TasteDna } from '@/lib/taste/types';
 
-import { Thumb } from "./TasteSearch";
+import { Thumb } from './TasteSearch';
 
 function Avatars({ person }: { person: Person }) {
   return (
@@ -25,15 +25,15 @@ export function TasteVenn({ dna, a, b }: { dna?: TasteDna; a: Person; b: Person 
       <p className="text-xs font-semibold tracking-[0.14em] text-ink-soft uppercase">Your taste overlap · via Qloo</p>
       <div className="relative mx-auto mt-3 aspect-[2/1] w-full max-w-[640px]">
         <motion.div
-          initial={{ x: "-18%", opacity: 0 }}
+          initial={{ x: '-18%', opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 90, damping: 16 }}
+          transition={{ type: 'spring', stiffness: 90, damping: 16 }}
           className="absolute top-0 left-0 aspect-square h-full rounded-full bg-a/15 ring-1 ring-a/30"
         />
         <motion.div
-          initial={{ x: "18%", opacity: 0 }}
+          initial={{ x: '18%', opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 90, damping: 16 }}
+          transition={{ type: 'spring', stiffness: 90, damping: 16 }}
           className="absolute top-0 right-0 aspect-square h-full rounded-full bg-b/15 ring-1 ring-b/30"
         />
         <div className="absolute inset-0 grid grid-cols-[1fr_1.05fr_1fr] items-center text-center">

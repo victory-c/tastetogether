@@ -1,4 +1,4 @@
-export type InterestKind = "artist" | "movie" | "tv_show" | "book" | "podcast" | "video_game";
+export type InterestKind = 'artist' | 'movie' | 'tv_show' | 'book' | 'podcast' | 'video_game';
 
 export interface Interest {
   id: string;
@@ -17,8 +17,8 @@ export interface Person {
   beenTo?: { id: string; name: string }[];
 }
 
-export type Occasion = "date" | "friends" | "business" | "coffee" | "show";
-export type DecisionMode = "three" | "one";
+export type Occasion = 'date' | 'friends' | 'business' | 'coffee' | 'show';
+export type DecisionMode = 'three' | 'one';
 
 export interface Area {
   id: string;
@@ -70,11 +70,11 @@ export interface PersonFit {
 }
 
 export type OpenStatus =
-  | { kind: "open"; until: string }
-  | { kind: "opens_later"; at: string }
-  | { kind: "closed_by_then" }
-  | { kind: "closed_today" }
-  | { kind: "unknown" };
+  | { kind: 'open'; until: string }
+  | { kind: 'opens_later'; at: string }
+  | { kind: 'closed_by_then' }
+  | { kind: 'closed_today' }
+  | { kind: 'unknown' };
 
 export interface Pick {
   id: string;
@@ -101,32 +101,32 @@ export interface Pick {
 }
 
 export interface StepEvent {
-  type: "step";
+  type: 'step';
   id: string;
   label: string;
-  status: "running" | "done" | "skipped";
+  status: 'running' | 'done' | 'skipped';
   detail?: string;
   ms?: number;
 }
 
 export type MatchEvent =
   | StepEvent
-  | { type: "dna"; dna: TasteDna }
-  | { type: "vibe"; tags: TasteTag[]; source: "agent" | "keywords" }
-  | { type: "pool"; scored: number; popularBaseline: string[]; skipped: number }
+  | { type: 'dna'; dna: TasteDna }
+  | { type: 'vibe'; tags: TasteTag[]; source: 'agent' | 'keywords' }
+  | { type: 'pool'; scored: number; popularBaseline: string[]; skipped: number }
   | {
-      type: "contrast";
+      type: 'contrast';
       popular: string[];
       aloneA: string[];
       aloneB: string[];
       together: string[];
     }
   | {
-      type: "negotiation";
+      type: 'negotiation';
       rows: { name: string; rankA: number; rankB: number; of: number }[];
     }
   | {
-      type: "result";
+      type: 'result';
       picks: Pick[];
       headline?: string;
       stats: { qlooCalls: number; cached: number; ms: number; llm: string | null };
@@ -134,7 +134,7 @@ export type MatchEvent =
       when: string;
     }
   | {
-      type: "error";
-      status: "no_match" | "provider_unavailable" | "needs_clarification";
+      type: 'error';
+      status: 'no_match' | 'provider_unavailable' | 'needs_clarification';
       message: string;
     };

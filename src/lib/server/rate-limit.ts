@@ -1,11 +1,11 @@
-import "server-only";
+import 'server-only';
 
 // Best-effort per-instance limiter to keep a public demo from draining the Qloo and LLM quotas.
 const buckets = new Map<string, { count: number; reset: number }>();
 
 function clientKey(request: Request) {
-  const fwd = request.headers.get("x-forwarded-for");
-  return fwd?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "anon";
+  const fwd = request.headers.get('x-forwarded-for');
+  return fwd?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'anon';
 }
 
 export function allow(request: Request, scope: string, limit: number, windowMs: number) {
@@ -21,7 +21,7 @@ export function allow(request: Request, scope: string, limit: number, windowMs: 
   return hit.count <= limit;
 }
 
-let day = "";
+let day = '';
 let dayCount = 0;
 
 /** Global daily ceiling on full match runs per instance. */

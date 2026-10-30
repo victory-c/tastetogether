@@ -1,27 +1,27 @@
-"use client";
+'use client';
 
-import clsx from "clsx";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, Heart, Link2, Loader2, RotateCcw, Share2, Sparkles, Wand2 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import clsx from 'clsx';
+import { AnimatePresence, motion } from 'motion/react';
+import { ArrowLeft, Heart, Link2, Loader2, RotateCcw, Share2, Sparkles, Wand2 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { decodePerson, encodePerson } from "@/lib/client/invite";
-import { useMatch, type MatchBody } from "@/lib/client/useMatch";
-import { AREAS, DEFAULT_AREA, DEFAULT_VENUE, OCCASIONS, VENUES } from "@/lib/taste/occasions";
-import { SAMPLE_DUOS } from "@/lib/taste/samples";
-import type { Occasion, Person, Pick } from "@/lib/taste/types";
+import { decodePerson, encodePerson } from '@/lib/client/invite';
+import { useMatch, type MatchBody } from '@/lib/client/useMatch';
+import { AREAS, DEFAULT_AREA, DEFAULT_VENUE, OCCASIONS, VENUES } from '@/lib/taste/occasions';
+import { SAMPLE_DUOS } from '@/lib/taste/samples';
+import type { Occasion, Person, Pick } from '@/lib/taste/types';
 
-import { AgentTrace } from "./AgentTrace";
-import { Celebration } from "./Celebration";
-import { ContrastPanel } from "./ContrastPanel";
-import { PersonPanel } from "./PersonPanel";
-import { PickCard } from "./PickCard";
-import { PlanControls, type Plan } from "./PlanControls";
-import { SiteHeader } from "./SiteHeader";
-import { TasteVenn } from "./TasteVenn";
+import { AgentTrace } from './AgentTrace';
+import { Celebration } from './Celebration';
+import { ContrastPanel } from './ContrastPanel';
+import { PersonPanel } from './PersonPanel';
+import { PickCard } from './PickCard';
+import { PlanControls, type Plan } from './PlanControls';
+import { SiteHeader } from './SiteHeader';
+import { TasteVenn } from './TasteVenn';
 
-const HISTORY_KEY = "tastetogether.history.v1";
+const HISTORY_KEY = 'tastetogether.history.v1';
 
 interface HistoryItem {
   id: string;
@@ -32,7 +32,7 @@ interface HistoryItem {
 
 function readHistory(): HistoryItem[] {
   try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]") as HistoryItem[];
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') as HistoryItem[];
   } catch {
     return [];
   }
@@ -46,14 +46,14 @@ function writeHistory(items: HistoryItem[]) {
   }
 }
 
-const EMPTY_A: Person = { name: "You", interests: [] };
-const EMPTY_B: Person = { name: "Them", interests: [] };
+const EMPTY_A: Person = { name: 'You', interests: [] };
+const EMPTY_B: Person = { name: 'Them', interests: [] };
 const DEFAULT_PLAN: Plan = {
-  occasion: "date",
+  occasion: 'date',
   areaId: DEFAULT_AREA.id,
   priceMax: null,
-  vibe: "",
-  mode: "three",
+  vibe: '',
+  mode: 'three',
   venueId: DEFAULT_VENUE.id,
   doors: 19 * 60 + 30,
 };
@@ -74,20 +74,27 @@ export function MatchApp() {
   const [copied, setCopied] = useState<string | null>(null);
   const [lastBody, setLastBody] = useState<MatchBody | null>(null);
   const { state, run, reset } = useMatch();
+  // Deep links that auto-run (?go=1) go straight to the results view instead of flashing the builder.
+  const [autostart, setAutostart] = useState(() => params.get('go') === '1');
   const autoRan = useRef(false);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const picksRef = useRef<HTMLElement>(null);
 
   // Hydrate thumbnails for interests that arrived without images (samples, invite links).
   const hydrate = useCallback(async (people: Person[], extra: string[] = []) => {
     const ids = [...people.flatMap((p) => p.interests.filter((i) => !i.image).map((i) => i.id)), ...extra];
     if (ids.length === 0) return;
     try {
-      const res = await fetch(`/api/entities?ids=${ids.join(",")}`);
+      const res = await fetch(`/api/entities?ids=${ids.join(',')}`);
       const { images } = (await res.json()) as { images: Record<string, string> };
       const fill = (p: Person): Person => ({ ...p, interests: p.interests.map((i) => (i.image ? i : { ...i, image: images[i.id] })) });
       setA((p) => fill(p));
       setB((p) => fill(p));
-      setPlan((pl) => (pl.performer && !pl.performer.image && images[pl.performer.id] ? { ...pl, performer: { ...pl.performer, image: images[pl.performer.id] } } : pl));
+      setPlan((pl) =>
+        pl.performer && !pl.performer.image && images[pl.performer.id]
+          ? { ...pl, performer: { ...pl.performer, image: images[pl.performer.id] } }
+          : pl,
+      );
     } catch {
       // Thumbnails are decorative.
     }
@@ -124,7 +131,7 @@ export function MatchApp() {
     (pa: Person, pb: Person, pl: Plan, exclude: string[] = []): MatchBody => {
       const remembered = history.map((h) => h.id);
       const strip = (p: Person) => ({
-        name: p.name.trim() || "Friend",
+        name: p.name.trim() || 'Friend',
         interests: p.interests.map(({ id, name, kind, year }) => ({ id, name, kind, year })),
         visited: [...new Set([...remembered, ...(p.visited ?? []), ...(p.beenTo ?? []).map((x) => x.id)])].slice(0, 50),
       });
@@ -139,7 +146,7 @@ export function MatchApp() {
         vibe: pl.vibe.trim() || undefined,
         exclude,
         show:
-          pl.occasion === "show"
+          pl.occasion === 'show'
             ? {
                 venueId: pl.venueId,
                 doors: pl.doors,
@@ -161,7 +168,7 @@ export function MatchApp() {
       setUsed(exclude);
       setChosen(null);
       void run(body);
-      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
     },
     [bodyFor, run],
   );
@@ -173,38 +180,38 @@ export function MatchApp() {
 
   useEffect(() => {
     if (autoRan.current) return;
-    const demo = params.get("demo");
-    const invite = params.get("invite");
-    const sa = params.get("a");
-    const sb = params.get("b");
+    const demo = params.get('demo');
+    const invite = params.get('invite');
+    const sa = params.get('a');
+    const sb = params.get('b');
     autoRan.current = true;
     if (demo) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from the URL (demo/invite/share links).
       const loaded = loadDuo(demo);
-      if (loaded && params.get("go") === "1") start(loaded.duo.a, loaded.duo.b, loaded.plan);
+      if (loaded && params.get('go') === '1') start(loaded.duo.a, loaded.duo.b, loaded.plan);
     } else if (sa && sb) {
       const pa = decodePerson(sa);
       const pb = decodePerson(sb);
       if (pa && pb) {
-        const occ = (params.get("o") as Occasion) || "date";
+        const occ = (params.get('o') as Occasion) || 'date';
         const pl: Plan = {
           ...DEFAULT_PLAN,
-          occasion: occ in OCCASIONS ? occ : "date",
-          areaId: params.get("area") || DEFAULT_AREA.id,
-          priceMax: (Number(params.get("p")) || null) as Plan["priceMax"],
-          vibe: params.get("v") || "",
+          occasion: occ in OCCASIONS ? occ : 'date',
+          areaId: params.get('area') || DEFAULT_AREA.id,
+          priceMax: (Number(params.get('p')) || null) as Plan['priceMax'],
+          vibe: params.get('v') || '',
         };
         setA(pa);
         setB(pb);
         setPlan(pl);
         void hydrate([pa, pb]);
-        if (params.get("go") === "1") start(pa, pb, pl);
+        if (params.get('go') === '1') start(pa, pb, pl);
       }
     } else if (invite) {
       const pa = decodePerson(invite);
       if (pa) {
         setA(pa);
-        setB({ name: "", interests: [] });
+        setB({ name: '', interests: [] });
         setInvitedBy(pa.name);
         void hydrate([pa]);
       }
@@ -213,17 +220,19 @@ export function MatchApp() {
 
   // Fill the visible cards as soon as results arrive.
   useEffect(() => {
-    if (state.phase !== "done" || visible.length > 0) return;
-    const n = plan.mode === "one" ? 1 : 3;
+    if (state.phase !== 'done' || visible.length > 0) return;
+    const n = plan.mode === 'one' ? 1 : 3;
     const first = state.picks.slice(0, n).map((p) => p.id);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- derived once per finished run.
     setVisible(first);
     setUsed((u) => [...new Set([...u, ...first])]);
+    // Bring the picks into view once the agent finishes (the trace stays one scroll up).
+    setTimeout(() => picksRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 450);
   }, [state.phase, state.picks, plan.mode, visible.length]);
 
   const pickById = useMemo(() => new Map(state.picks.map((p) => [p.id, p])), [state.picks]);
   const ready = a.interests.length > 0 && b.interests.length > 0;
-  const showResults = state.phase !== "idle";
+  const showResults = state.phase !== 'idle' || autostart;
 
   const another = (id: string) => {
     const next = state.picks.find((p) => !used.includes(p.id) && !visible.includes(p.id));
@@ -251,15 +260,15 @@ export function MatchApp() {
       setCopied(label);
       setTimeout(() => setCopied(null), 2200);
     } catch {
-      window.prompt("Copy this link", text);
+      window.prompt('Copy this link', text);
     }
   };
 
   const inviteLink = () => `${window.location.origin}/match?invite=${encodePerson(a)}`;
   const shareLink = () => {
-    const q = new URLSearchParams({ a: encodePerson(a), b: encodePerson(b), o: plan.occasion, area: plan.areaId, go: "1" });
-    if (plan.priceMax) q.set("p", String(plan.priceMax));
-    if (plan.vibe) q.set("v", plan.vibe);
+    const q = new URLSearchParams({ a: encodePerson(a), b: encodePerson(b), o: plan.occasion, area: plan.areaId, go: '1' });
+    if (plan.priceMax) q.set('p', String(plan.priceMax));
+    if (plan.vibe) q.set('v', plan.vibe);
     return `${window.location.origin}/match?${q.toString()}`;
   };
 
@@ -269,7 +278,12 @@ export function MatchApp() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 sm:px-6">
         <AnimatePresence mode="wait">
           {!showResults ? (
-            <motion.div key="builder" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -8 }}>
+            <motion.div
+              key="builder"
+              initial={false}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+            >
               <div className="flex flex-col gap-4 pt-6 pb-6 sm:flex-row sm:items-end sm:justify-between sm:pt-10">
                 <div>
                   {invitedBy ? (
@@ -289,10 +303,11 @@ export function MatchApp() {
                     )}
                   </h1>
                   <p className="mt-2 max-w-xl text-ink-soft">
-                    Pick a few artists, films, shows or books for each person. No food preferences needed — your cultural taste says more than you think.
+                    Pick a few artists, films, shows or books for each person. No food preferences needed — your cultural taste says more
+                    than you think.
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className={clsx('flex flex-wrap items-center gap-2', invitedBy && 'hidden')}>
                   <span className="text-xs font-semibold tracking-wide text-ink-faint uppercase">Try a demo duo</span>
                   {SAMPLE_DUOS.map((d) => (
                     <button
@@ -300,8 +315,8 @@ export function MatchApp() {
                       type="button"
                       onClick={() => loadDuo(d.id)}
                       className={clsx(
-                        "rounded-full border px-3 py-1.5 text-sm font-semibold transition",
-                        activeDuo === d.id ? "border-ink bg-ink text-cream" : "border-line bg-paper hover:border-ink/30",
+                        'rounded-full border px-3 py-1.5 text-sm font-semibold transition',
+                        activeDuo === d.id ? 'border-ink bg-ink text-cream' : 'border-line bg-paper hover:border-ink/30',
                       )}
                       title={d.story}
                     >
@@ -314,8 +329,8 @@ export function MatchApp() {
               {activeDuo && (
                 <p className="mb-4 rounded-2xl bg-paper/80 px-4 py-3 text-sm text-ink-soft ring-1 ring-line">
                   <Sparkles className="mr-1.5 inline size-4 text-b" />
-                  <span className="font-semibold text-ink">Demo duo:</span> {SAMPLE_DUOS.find((d) => d.id === activeDuo)?.story}. These people are
-                  fictional; every recommendation below is computed live from Qloo.
+                  <span className="font-semibold text-ink">Demo duo:</span> {SAMPLE_DUOS.find((d) => d.id === activeDuo)?.story}. These
+                  people are fictional; every recommendation below is computed live from Qloo.
                 </p>
               )}
 
@@ -328,15 +343,18 @@ export function MatchApp() {
                   side="b"
                   person={b}
                   onChange={setB}
+                  isYou={Boolean(invitedBy)}
                   footer={
                     !invitedBy && a.interests.length > 0 ? (
                       <button
                         type="button"
-                        onClick={() => copy(inviteLink(), "invite")}
+                        onClick={() => copy(inviteLink(), 'invite')}
                         className="inline-flex items-center gap-1.5 self-start rounded-full bg-cream px-3 py-1.5 text-xs font-semibold text-ink-soft ring-1 ring-line transition hover:text-ink"
                       >
                         <Link2 className="size-3.5" />
-                        {copied === "invite" ? "Invite link copied!" : `Not together? Send ${b.name && b.name !== "Them" ? b.name : "them"} an invite link`}
+                        {copied === 'invite'
+                          ? 'Invite link copied!'
+                          : `Not together? Send ${b.name && b.name !== 'Them' ? b.name : 'them'} an invite link`}
                       </button>
                     ) : null
                   }
@@ -349,9 +367,13 @@ export function MatchApp() {
 
               {history.length > 0 && (
                 <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-                  <span className="font-semibold text-ink">Memory:</span> skipping {history.length} place{history.length > 1 ? "s" : ""} you&apos;ve already
-                  picked ({history.slice(0, 3).map((h) => h.name).join(", ")}
-                  {history.length > 3 ? "…" : ""})
+                  <span className="font-semibold text-ink">Memory:</span> skipping {history.length} place{history.length > 1 ? 's' : ''}{' '}
+                  you&apos;ve already picked (
+                  {history
+                    .slice(0, 3)
+                    .map((h) => h.name)
+                    .join(', ')}
+                  {history.length > 3 ? '…' : ''})
                   <button
                     type="button"
                     className="text-xs font-semibold underline underline-offset-2"
@@ -376,35 +398,42 @@ export function MatchApp() {
                     <Wand2 className="size-5" /> Find our table
                   </button>
                   <p className="hidden text-sm text-ink-soft sm:block">
-                    {ready ? "Takes about 3 seconds. Every pick is scored live by Qloo." : "Add at least one favorite for each person."}
+                    {ready ? 'Takes about 3 seconds. Every pick is scored live by Qloo.' : 'Add at least one favorite for each person.'}
                   </p>
                 </div>
               </div>
             </motion.div>
           ) : (
-            <motion.div key="results" ref={resultsRef} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="pt-5 sm:pt-8">
+            <motion.div
+              key="results"
+              ref={resultsRef}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="pt-5 sm:pt-8"
+            >
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <button
                   type="button"
                   onClick={() => {
+                    setAutostart(false);
                     reset();
-                    router.replace("/match");
+                    router.replace('/match');
                   }}
                   className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3.5 py-2 text-sm font-semibold transition hover:border-ink/30"
                 >
                   <ArrowLeft className="size-4" /> Edit tastes
                 </button>
                 <div className="flex items-center gap-2">
-                  {state.phase === "done" && (
+                  {state.phase === 'done' && (
                     <button
                       type="button"
-                      onClick={() => copy(shareLink(), "share")}
+                      onClick={() => copy(shareLink(), 'share')}
                       className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3.5 py-2 text-sm font-semibold transition hover:border-ink/30"
                     >
-                      <Share2 className="size-4" /> {copied === "share" ? "Link copied!" : "Share these picks"}
+                      <Share2 className="size-4" /> {copied === 'share' ? 'Link copied!' : 'Share these picks'}
                     </button>
                   )}
-                  {lastBody && state.phase !== "running" && (
+                  {lastBody && state.phase !== 'running' && (
                     <button
                       type="button"
                       onClick={() => start(a, b, plan)}
@@ -418,10 +447,10 @@ export function MatchApp() {
 
               <div className="grid items-start gap-4 lg:grid-cols-[1.25fr_1fr] lg:gap-6">
                 <TasteVenn dna={state.dna} a={a} b={b} />
-                <AgentTrace steps={state.steps} running={state.phase === "running"} stats={state.stats} />
+                <AgentTrace steps={state.steps} running={state.phase === 'running'} stats={state.stats} />
               </div>
 
-              {state.phase === "running" && (
+              {state.phase === 'running' && (
                 <div className="mt-6 grid gap-4 md:grid-cols-3">
                   {[0, 1, 2].map((i) => (
                     <div key={i} className="overflow-hidden rounded-[28px] border border-line bg-paper">
@@ -437,18 +466,18 @@ export function MatchApp() {
                 </div>
               )}
 
-              {state.phase === "error" && state.error && (
+              {state.phase === 'error' && state.error && (
                 <div className="mt-6 rounded-[28px] border border-a/30 bg-a-soft/50 p-6">
                   <p className="font-display text-2xl font-semibold">
-                    {state.error.status === "no_match" ? "No table fits every wish — yet." : "We hit a snag."}
+                    {state.error.status === 'no_match' ? 'No table fits every wish — yet.' : 'We hit a snag.'}
                   </p>
                   <p className="mt-1 text-ink-soft">{state.error.message}</p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {state.error.status === "no_match" && (
+                    {state.error.status === 'no_match' && (
                       <button
                         type="button"
                         onClick={() => {
-                          const relaxedPlan = { ...plan, priceMax: null, vibe: "" };
+                          const relaxedPlan = { ...plan, priceMax: null, vibe: '' };
                           setPlan(relaxedPlan);
                           start(a, b, relaxedPlan);
                         }}
@@ -457,35 +486,43 @@ export function MatchApp() {
                         Drop the budget &amp; vibe filters
                       </button>
                     )}
-                    <button type="button" onClick={() => start(a, b, plan)} className="rounded-full border border-line bg-paper px-4 py-2.5 text-sm font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => start(a, b, plan)}
+                      className="rounded-full border border-line bg-paper px-4 py-2.5 text-sm font-semibold"
+                    >
                       Try again
                     </button>
                   </div>
                 </div>
               )}
 
-              {state.phase === "done" && (
-                <section className="mt-8" aria-live="polite">
+              {state.phase === 'done' && (
+                <section ref={picksRef} className="mt-8 scroll-mt-20" aria-live="polite">
                   <div className="mb-5">
                     <p className="text-xs font-semibold tracking-[0.14em] text-ink-soft uppercase">
-                      {OCCASIONS[plan.occasion].emoji}{" "}
-                      {plan.occasion === "show"
-                        ? `Before ${plan.performer?.name ?? "the show"} at ${VENUES.find((v) => v.id === plan.venueId)?.label ?? "the venue"}`
-                        : `${OCCASIONS[plan.occasion].label} · ${plan.near ? "Near you" : AREAS.find((x) => x.id === plan.areaId)?.label}`}
-                      {state.when ? ` · ${state.when}` : ""}
+                      {OCCASIONS[plan.occasion].emoji}{' '}
+                      {plan.occasion === 'show'
+                        ? `Before ${plan.performer?.name ?? 'the show'} at ${VENUES.find((v) => v.id === plan.venueId)?.label ?? 'the venue'}`
+                        : `${OCCASIONS[plan.occasion].label} · ${plan.near ? 'Near you' : AREAS.find((x) => x.id === plan.areaId)?.label}`}
+                      {state.when ? ` · ${state.when}` : ''}
                     </p>
                     <h2 className="mt-1 font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-                      {state.headline ?? (plan.mode === "one" ? `Tonight, ${a.name} & ${b.name} eat here.` : `Three tables ${a.name} & ${b.name} will both love.`)}
+                      {state.headline ??
+                        (plan.mode === 'one'
+                          ? `Tonight, ${a.name} & ${b.name} eat here.`
+                          : `Three tables ${a.name} & ${b.name} will both love.`)}
                     </h2>
                     {state.relaxed && <p className="mt-2 text-sm text-ink-soft">{state.relaxed}</p>}
                     {state.pool && state.pool.skipped > 0 && (
                       <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-mint-soft px-3 py-1 text-xs font-semibold text-mint">
-                        Memory: skipped {state.pool.skipped} place{state.pool.skipped > 1 ? "s" : ""} {a.name} or {b.name} has already been to
+                        Memory: skipped {state.pool.skipped} place{state.pool.skipped > 1 ? 's' : ''} {a.name} or {b.name} has already been
+                        to
                       </p>
                     )}
                   </div>
 
-                  <div className={clsx("grid gap-5", plan.mode === "one" ? "" : "md:grid-cols-2 lg:grid-cols-3")}>
+                  <div className={clsx('grid gap-5', plan.mode === 'one' ? '' : 'md:grid-cols-2 lg:grid-cols-3')}>
                     <AnimatePresence mode="popLayout">
                       {visible.map((id, i) => {
                         const p = pickById.get(id);
@@ -495,7 +532,7 @@ export function MatchApp() {
                             key={p.id}
                             pick={p}
                             index={i}
-                            hero={plan.mode === "one"}
+                            hero={plan.mode === 'one'}
                             aName={a.name}
                             bName={b.name}
                             chosen={chosen?.id === p.id}
@@ -517,7 +554,9 @@ export function MatchApp() {
                   <div className="mt-4 grid gap-4 lg:grid-cols-2">
                     {state.negotiation && (
                       <div className="rounded-[24px] border border-line bg-paper/90 p-5 shadow-card">
-                        <p className="text-xs font-semibold tracking-[0.14em] text-ink-soft uppercase">How each taste ranked the finalists</p>
+                        <p className="text-xs font-semibold tracking-[0.14em] text-ink-soft uppercase">
+                          How each taste ranked the finalists
+                        </p>
                         <table className="mt-3 w-full text-sm">
                           <thead>
                             <tr className="text-left text-xs text-ink-faint">
@@ -537,7 +576,8 @@ export function MatchApp() {
                           </tbody>
                         </table>
                         <p className="mt-3 text-xs text-ink-faint">
-                          Out of {state.negotiation[0]?.of} places Qloo scored for both of you. We favor the spot where the less-excited person is still happy.
+                          Out of {state.negotiation[0]?.of} places Qloo scored for both of you. We favor the spot where the less-excited
+                          person is still happy.
                         </p>
                       </div>
                     )}
@@ -545,20 +585,21 @@ export function MatchApp() {
                       <p className="text-xs font-semibold tracking-[0.14em] text-ink-soft uppercase">How the agent read your plan</p>
                       <ul className="mt-3 space-y-2 text-sm text-ink-soft">
                         <li>
-                          <span className="font-medium text-ink">Occasion:</span> {OCCASIONS[plan.occasion].label}, planned for {state.when?.toLowerCase()};
-                          places that won&apos;t be open then are pushed down.
+                          <span className="font-medium text-ink">Occasion:</span> {OCCASIONS[plan.occasion].label}, planned for{' '}
+                          {state.when?.toLowerCase()}; places that won&apos;t be open then are pushed down.
                         </li>
                         {state.vibe && (
                           <li>
-                            <span className="font-medium text-ink">Your vibe → Qloo tags:</span>{" "}
-                            {state.vibe.tags.length ? state.vibe.tags.map((t) => t.name).join(", ") : "no matching tags"}
-                            {state.vibe.source === "keywords" ? " (keyword match)" : " (chosen by the agent from Qloo's taxonomy)"}
+                            <span className="font-medium text-ink">Your vibe → Qloo tags:</span>{' '}
+                            {state.vibe.tags.length ? state.vibe.tags.map((t) => t.name).join(', ') : 'no matching tags'}
+                            {state.vibe.source === 'keywords' ? ' (keyword match)' : " (chosen by the agent from Qloo's taxonomy)"}
                           </li>
                         )}
                         {state.pool && (
                           <li>
-                            <span className="font-medium text-ink">Scored:</span> {state.pool.scored} places, each scored separately for {a.name} and for {b.name}
-                            {state.stats ? ` in ${state.stats.qlooCalls} live Qloo calls` : ""}.
+                            <span className="font-medium text-ink">Scored:</span> {state.pool.scored} places, each scored separately for{' '}
+                            {a.name} and for {b.name}
+                            {state.stats ? ` in ${state.stats.qlooCalls + state.stats.cached} Qloo calls` : ''}.
                           </li>
                         )}
                       </ul>
@@ -570,8 +611,16 @@ export function MatchApp() {
           )}
         </AnimatePresence>
       </main>
-      <Celebration when={state.when} pick={celebrating ? chosen : null} aName={a.name} bName={b.name} onClose={() => setCelebrating(false)} onShare={() => copy(shareLink(), "share")} copied={copied === "share"} />
-      {state.phase === "running" && (
+      <Celebration
+        when={state.when}
+        pick={celebrating ? chosen : null}
+        aName={a.name}
+        bName={b.name}
+        onClose={() => setCelebrating(false)}
+        onShare={() => copy(shareLink(), 'share')}
+        copied={copied === 'share'}
+      />
+      {state.phase === 'running' && (
         <div className="fixed right-4 bottom-4 z-40 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-medium text-cream shadow-lift sm:hidden">
           <Loader2 className="size-4 animate-spin" /> Finding your table…
         </div>
