@@ -1,0 +1,83 @@
+// Idempotent schema. Applied once per process before first query (and by `npm run db:migrate`).
+export const MIGRATIONS: string[] = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS profiles (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL UNIQUE REFERENCES users(id),
+    display_name TEXT NOT NULL,
+    area_label TEXT NOT NULL,
+    center_lat REAL NOT NULL,
+    center_lon REAL NOT NULL,
+    radius_m INTEGER NOT NULL,
+    price_max INTEGER CHECK (price_max BETWEEN 1 AND 4),
+    excluded_cuisines TEXT NOT NULL DEFAULT '[]',
+    positive_entities TEXT NOT NULL DEFAULT '[]',
+    is_demo INTEGER NOT NULL DEFAULT 0,
+    version INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS memories (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    place_id TEXT,
+    unresolved_name TEXT,
+    name TEXT NOT NULL,
+    address TEXT,
+    status TEXT NOT NULL CHECK (status IN ('visited','want_to_try','dismissed')),
+    visit_date TEXT,
+    visit_count INTEGER,
+    rating TEXT CHECK (rating IN ('liked','neutral','disliked')),
+    revisit_intent INTEGER,
+    source TEXT NOT NULL CHECK (source IN ('manual','feedback','demo')),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK (place_id IS NOT NULL OR unresolved_name IS NOT NULL)
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS memories_profile_place ON memories(profile_id, place_id) WHERE place_id IS NOT NULL`,
+  `CREATE TABLE IF NOT EXISTS match_sessions (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL REFERENCES users(id),
+    invite_token_hash TEXT NOT NULL UNIQUE,
+    participant_a TEXT NOT NULL REFERENCES profiles(id),
+    participant_b TEXT REFERENCES profiles(id),
+    consent_b INTEGER NOT NULL DEFAULT 0,
+    confirmed_a INTEGER NOT NULL DEFAULT 0,
+    confirmed_b INTEGER NOT NULL DEFAULT 0,
+    constraints TEXT NOT NULL,
+    rejected_place_ids TEXT NOT NULL DEFAULT '[]',
+    state TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    revoked INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS recommendation_runs (
+    id TEXT PRIMARY KEY,
+    session_id TEXT REFERENCES match_sessions(id),
+    owner_id TEXT NOT NULL REFERENCES users(id),
+    idempotency_key TEXT NOT NULL UNIQUE,
+    profile_versions TEXT NOT NULL,
+    constraint_version INTEGER NOT NULL,
+    provider_refs TEXT NOT NULL,
+    candidate_ids TEXT NOT NULL,
+    evidence TEXT NOT NULL,
+    result TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS runs_session ON recommendation_runs(session_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS feedback (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES recommendation_runs(id),
+    profile_id TEXT NOT NULL REFERENCES profiles(id),
+    place_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('selected','dismissed','visited')),
+    rating TEXT CHECK (rating IN ('liked','neutral','disliked')),
+    revisit_intent INTEGER,
+    reason TEXT,
+    created_at TEXT NOT NULL
+  )`,
+];

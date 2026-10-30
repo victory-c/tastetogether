@@ -1,0 +1,1 @@
+{"success":true,"results":{"entities":[{"entity_id":"insight-1","name":"Insight Place","properties":{"hours":{"monday":[{"opens":"T17:00:00","closes":"T23:00:00"}],"tuesday":[{"opens":null,"closes":null,"closed":true}]}},"external":{"resy":[{"url":"https://resy.com/example"}],"google_place":[{"place_id":"google-1"}]}},{"name":"Missing ID"}]}}
