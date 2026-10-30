@@ -21,15 +21,15 @@ describe('Qloo response parsing', () => {
   });
 });
 
-describe('real /search response shape', () => {
+describe('/search response shape (synthetic sample)', () => {
   it('maps tags keyed by tag_id (search) the same as id (insights)', async () => {
-    const { default: raw } = await import('../src/server/qloo/fixtures/search-real.json');
+    const { default: raw } = await import('../src/server/qloo/fixtures/search-sample.json');
     const { parseEntities, searchResponseSchema } = await import('../src/server/qloo/types');
     const { mapEntity } = await import('../src/server/qloo/map');
     const entities = parseEntities(searchResponseSchema.parse(raw).results);
     expect(entities).toHaveLength(1);
     const c = mapEntity(entities[0]!);
-    expect(c.name).toBe('Chez Panisse');
+    expect(c.name).toBe('Fixture Bistro');
     expect(c.tagIds.length).toBeGreaterThan(0);
     expect(c.tagIds.every((id) => id.startsWith('urn:tag:'))).toBe(true);
   });
