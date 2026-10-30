@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
+import type { Metadata } from 'next';
+import { Suspense } from 'react';
 
-import { MatchApp } from "@/components/MatchApp";
+import { MatchApp } from '@/components/MatchApp';
 
 export const metadata: Metadata = {
-  title: "Find your table — TasteTogether",
+  title: 'Find your table — TasteTogether',
 };
 
 export default function MatchPage() {

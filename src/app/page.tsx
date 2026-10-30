@@ -1,49 +1,54 @@
-import { ArrowRight, Check, Compass, Heart, Scale, Sparkles, X } from "lucide-react";
-import Link from "next/link";
+import { ArrowRight, Check, Compass, Heart, Scale, Sparkles, X } from 'lucide-react';
+import Link from 'next/link';
 
-import { HeroOrbit } from "@/components/HeroOrbit";
-import { LogoMark } from "@/components/Logo";
-import { REPO_URL, SiteHeader } from "@/components/SiteHeader";
+import { HeroOrbit } from '@/components/HeroOrbit';
+import { LogoMark } from '@/components/Logo';
+import { REPO_URL, SiteHeader } from '@/components/SiteHeader';
 
 const STEPS = [
   {
     icon: Heart,
-    title: "Tell us what you love",
+    title: 'Tell us what you love',
     body: "A few artists, films, shows or books each. No food quiz — cultural taste predicts where you'll feel at home.",
-    api: "/search",
+    api: '/search',
   },
   {
     icon: Sparkles,
-    title: "Qloo maps your taste DNA",
-    body: "The agent compares both profiles to find what you share — and what makes each of you different.",
-    api: "/v2/analysis/compare",
+    title: 'Qloo maps your taste DNA',
+    body: 'The agent compares both profiles to find what you share — and what makes each of you different.',
+    api: '/v2/analysis/compare',
   },
   {
     icon: Compass,
-    title: "Every spot, scored for each of you",
+    title: 'Every spot, scored for each of you',
     body: "Nearby restaurants are scouted through each person's taste, then every candidate is scored for both people.",
-    api: "/v2/insights · filter.results.entities",
+    api: '/v2/insights · filter.results.entities',
   },
   {
     icon: Scale,
-    title: "A fair pick, explained",
-    body: "We remove the popularity effect and choose where the less-excited person is still happy. Every reason traces to Qloo.",
-    api: "feature.explainability",
+    title: 'A fair pick, explained',
+    body: 'We remove the popularity effect and choose where the less-excited person is still happy. Every reason traces to Qloo.',
+    api: 'feature.explainability',
   },
 ];
 
 const OCCASION_LIST = [
-  { emoji: "🎟️", label: "Before a show", body: "Pick the venue and doors time; we find dinner nearby that's open before the show.", hot: true },
-  { emoji: "🕯️", label: "Date night", body: "Somewhere you can actually talk — Qloo's date-night and noise tags count.", hot: false },
-  { emoji: "🥂", label: "Catch-up", body: "Lively, shareable spots that suit both of you.", hot: false },
-  { emoji: "☕", label: "Coffee or dessert", body: "Low-stakes first meetups, from the cafés Qloo knows.", hot: false },
+  {
+    emoji: '🎟️',
+    label: 'Before a show',
+    body: "Pick the venue and doors time; we find dinner nearby that's open before the show.",
+    hot: true,
+  },
+  { emoji: '🕯️', label: 'Date night', body: "Somewhere you can actually talk — Qloo's date-night and noise tags count.", hot: false },
+  { emoji: '🥂', label: 'Catch-up', body: 'Lively, shareable spots that suit both of you.', hot: false },
+  { emoji: '☕', label: 'Coffee or dessert', body: 'Low-stakes first meetups, from the cafés Qloo knows.', hot: false },
 ];
 
 const COMPARE = [
-  ["Ranks what's popular", "Ranks what fits both of your tastes"],
-  ["Optimizes for one person's query", "Scores every spot for each person, then finds the fair middle"],
-  ["Can invent hours, dishes or vibes", "Venue facts come from Qloo data; unknowns are labeled"],
-  ["Forgets where you've been", "Remembers your picks and skips them next time"],
+  ["Ranks what's popular", 'Ranks what fits both of your tastes'],
+  ["Optimizes for one person's query", 'Scores every spot for each person, then finds the fair middle'],
+  ['Can invent hours, dishes or vibes', 'Venue facts come from Qloo data; unknowns are labeled'],
+  ["Forgets where you've been", 'Remembers your picks and skips them next time'],
 ];
 
 export default function Home() {
@@ -51,7 +56,7 @@ export default function Home() {
     <>
       <SiteHeader />
       <main className="flex-1">
-        <section className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 pt-10 pb-16 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-16">
+        <section className="mx-auto grid w-full max-w-6xl items-center gap-10 overflow-x-clip px-4 pt-10 pb-16 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-16">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full bg-paper/80 px-3 py-1.5 text-xs font-semibold text-ink-soft ring-1 ring-line">
               <span className="size-1.5 rounded-full bg-mint" /> A dining agent built on Qloo&apos;s taste graph
@@ -62,8 +67,8 @@ export default function Home() {
               <span className="text-duo italic">One table.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-soft">
-              Tell us the music, films and shows you each love. Our agent reads both tastes through Qloo&apos;s cultural graph and finds the place you&apos;ll{" "}
-              <em className="font-semibold text-ink not-italic">both</em> love — in about three seconds.
+              Tell us the music, films and shows you each love. Our agent reads both tastes through Qloo&apos;s cultural graph and finds the
+              place you&apos;ll <em className="font-semibold text-ink not-italic">both</em> love — in about three seconds.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
@@ -80,7 +85,7 @@ export default function Home() {
               </Link>
             </div>
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-ink-soft">
-              {["No sign-up", "Live Qloo scoring", "Fair to both people"].map((t) => (
+              {['No sign-up', 'Live Qloo scoring', 'Fair to both people'].map((t) => (
                 <li key={t} className="flex items-center gap-1.5">
                   <Check className="size-4 text-mint" strokeWidth={3} /> {t}
                 </li>
@@ -98,8 +103,9 @@ export default function Home() {
               <span className="text-ink-soft">&ldquo;I don&apos;t know… you pick.&rdquo;</span>
             </p>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-ink-soft">
-              Review apps rank what&apos;s popular. AI chatbots guess. Neither knows that a <span className="font-semibold text-a-deep">Gilmore Girls</span> fan
-              and a <span className="font-semibold text-b-deep">Dune</span> obsessive might share a soft spot for the same candlelit dining room.{" "}
+              Review apps rank what&apos;s popular. AI chatbots guess. Neither knows that a{' '}
+              <span className="font-semibold text-a-deep">Gilmore Girls</span> fan and a{' '}
+              <span className="font-semibold text-b-deep">Dune</span> obsessive might share a soft spot for the same candlelit dining room.{' '}
               <span className="font-semibold text-ink">Qloo does</span> — its graph links 250M+ cultural entities to real places.
             </p>
           </div>
@@ -117,7 +123,9 @@ export default function Home() {
                 <s.icon className="absolute top-6 right-6 size-6 text-b" />
                 <h3 className="mt-3 font-display text-xl font-semibold tracking-tight">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-ink-soft">{s.body}</p>
-                <p className="mt-4 inline-block rounded-lg bg-cream px-2 py-1 font-mono text-[11px] text-ink-soft ring-1 ring-line">{s.api}</p>
+                <p className="mt-4 inline-block rounded-lg bg-cream px-2 py-1 font-mono text-[11px] text-ink-soft ring-1 ring-line">
+                  {s.api}
+                </p>
               </div>
             ))}
           </div>
@@ -154,16 +162,21 @@ export default function Home() {
           <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
             <div className="rounded-[32px] border border-line bg-paper p-7 shadow-card sm:p-9">
               <p className="text-xs font-semibold tracking-[0.16em] text-ink-soft uppercase">Made for real nights out</p>
-              <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">The occasion changes the answer.</h2>
+              <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+                The occasion changes the answer.
+              </h2>
               <ul className="mt-6 grid gap-3 sm:grid-cols-2">
                 {OCCASION_LIST.map((o) => (
-                  <li key={o.label} className={`flex items-start gap-3 rounded-2xl p-4 ring-1 ${o.hot ? "bg-ink text-cream ring-ink" : "bg-cream/70 ring-line"}`}>
+                  <li
+                    key={o.label}
+                    className={`flex items-start gap-3 rounded-2xl p-4 ring-1 ${o.hot ? 'bg-ink text-cream ring-ink' : 'bg-cream/70 ring-line'}`}
+                  >
                     <span className="text-2xl" aria-hidden>
                       {o.emoji}
                     </span>
                     <span>
                       <span className="block font-semibold">{o.label}</span>
-                      <span className={`block text-sm ${o.hot ? "text-cream/70" : "text-ink-soft"}`}>{o.body}</span>
+                      <span className={`block text-sm ${o.hot ? 'text-cream/70' : 'text-ink-soft'}`}>{o.body}</span>
                     </span>
                   </li>
                 ))}
@@ -173,11 +186,12 @@ export default function Home() {
               <p className="text-xs font-semibold tracking-[0.16em] text-cream/60 uppercase">Bring your own agent</p>
               <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">Ask Claude or ChatGPT to plan dinner.</h2>
               <p className="mt-3 text-cream/75">
-                TasteTogether is also an MCP server. Any MCP-capable assistant can call <code className="font-mono text-sm text-cream">find_table_for_two</code>{" "}
-                with two people&apos;s favorites and get the same Qloo-scored, fair picks.
+                TasteTogether is also an MCP server. Any MCP-capable assistant can call{' '}
+                <code className="font-mono text-sm text-cream">find_table_for_two</code> with two people&apos;s favorites and get the same
+                Qloo-scored, fair picks.
               </p>
               <pre className="mt-5 overflow-x-auto rounded-2xl bg-white/5 p-4 font-mono text-[12px] leading-relaxed text-cream/85 ring-1 ring-white/10">
-{`{
+                {`{
   "tastetogether": {
     "url": "https://tastetogether.vercel.app/api/mcp"
   }
@@ -190,13 +204,23 @@ export default function Home() {
 
         <section className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6">
           <div className="bg-duo relative overflow-hidden rounded-[36px] px-7 py-14 text-center text-white shadow-lift sm:px-12">
-            <h2 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">Settle tonight&apos;s dinner debate.</h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-white/85">Try a demo duo in one click, or send a friend an invite link and each add your own taste.</p>
+            <h2 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+              Settle tonight&apos;s dinner debate.
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-lg text-white/85">
+              Try a demo duo in one click, or send a friend an invite link and each add your own taste.
+            </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-              <Link href="/match?demo=maya-leo&go=1" className="inline-flex h-13 items-center justify-center gap-2 rounded-full bg-white px-7 font-semibold text-ink">
+              <Link
+                href="/match?demo=maya-leo&go=1"
+                className="inline-flex h-13 items-center justify-center gap-2 rounded-full bg-white px-7 font-semibold text-ink"
+              >
                 Run the demo <ArrowRight className="size-4" />
               </Link>
-              <Link href="/match" className="inline-flex h-13 items-center justify-center rounded-full px-7 font-semibold ring-1 ring-white/60 transition hover:bg-white/10">
+              <Link
+                href="/match"
+                className="inline-flex h-13 items-center justify-center rounded-full px-7 font-semibold ring-1 ring-white/60 transition hover:bg-white/10"
+              >
                 Use our own tastes
               </Link>
             </div>

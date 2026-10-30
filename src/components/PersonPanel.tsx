@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import clsx from "clsx";
-import { AnimatePresence, motion } from "motion/react";
-import { Plus, X } from "lucide-react";
-import { useState } from "react";
+import clsx from 'clsx';
+import { AnimatePresence, motion } from 'motion/react';
+import { Plus, X } from 'lucide-react';
+import { useState } from 'react';
 
-import { KIND_LABEL } from "@/lib/client/format";
-import type { Interest, Person } from "@/lib/taste/types";
+import { KIND_LABEL } from '@/lib/client/format';
+import type { Interest, Person } from '@/lib/taste/types';
 
-import { TasteSearch, Thumb } from "./TasteSearch";
+import { TasteSearch, Thumb } from './TasteSearch';
 
-const IDEAS: Record<"a" | "b", string[]> = {
-  a: ["Taylor Swift", "Spirited Away", "Gilmore Girls", "Bad Bunny", "Little Women"],
-  b: ["Kendrick Lamar", "Interstellar", "The Bear", "Radiohead", "Succession"],
+const IDEAS: Record<'a' | 'b', string[]> = {
+  a: ['Taylor Swift', 'Spirited Away', 'Gilmore Girls', 'Bad Bunny', 'Little Women'],
+  b: ['Kendrick Lamar', 'Interstellar', 'The Bear', 'Radiohead', 'Succession'],
 };
 
 export function PersonPanel({
@@ -21,15 +21,17 @@ export function PersonPanel({
   onChange,
   locked,
   footer,
+  isYou,
 }: {
-  side: "a" | "b";
+  isYou?: boolean;
+  side: 'a' | 'b';
   person: Person;
   onChange: (p: Person) => void;
   locked?: boolean;
   footer?: React.ReactNode;
 }) {
   const [adding, setAdding] = useState<string | null>(null);
-  const accent = side === "a" ? "a" : "b";
+  const accent = side === 'a' ? 'a' : 'b';
   const full = person.interests.length >= 8;
 
   const add = (i: Interest) => {
@@ -54,24 +56,24 @@ export function PersonPanel({
   return (
     <section
       className={clsx(
-        "relative flex flex-col gap-4 rounded-[28px] border bg-paper/90 p-5 shadow-card backdrop-blur sm:p-6",
-        side === "a" ? "border-a/25" : "border-b/25",
+        'relative flex flex-col gap-4 rounded-[28px] border bg-paper/90 p-5 shadow-card backdrop-blur sm:p-6',
+        side === 'a' ? 'border-a/25' : 'border-b/25',
       )}
       aria-label={`${person.name}'s taste`}
     >
       <div className="flex items-center gap-3">
         <div
           className={clsx(
-            "grid size-11 shrink-0 place-items-center rounded-full font-display text-lg font-semibold text-white",
-            side === "a" ? "bg-a" : "bg-b",
+            'grid size-11 shrink-0 place-items-center rounded-full font-display text-lg font-semibold text-white',
+            side === 'a' ? 'bg-a' : 'bg-b',
           )}
           aria-hidden
         >
-          {(person.name || "?").slice(0, 1).toUpperCase()}
+          {(person.name || '?').slice(0, 1).toUpperCase()}
         </div>
         <div className="min-w-0 flex-1">
           <label className="block text-[11px] font-semibold tracking-[0.14em] text-ink-faint uppercase" htmlFor={`name-${side}`}>
-            {side === "a" ? "Person one" : "Person two"}
+            {isYou ? 'You' : side === 'a' ? 'Person one' : 'Person two'}
           </label>
           <input
             id={`name-${side}`}
@@ -80,13 +82,13 @@ export function PersonPanel({
             disabled={locked}
             onChange={(e) => onChange({ ...person, name: e.target.value })}
             className="w-full bg-transparent font-display text-2xl font-semibold tracking-tight outline-none disabled:opacity-100"
-            placeholder={side === "a" ? "Your name" : "Their name"}
+            placeholder={isYou || side === 'a' ? 'Your name' : 'Their name'}
           />
         </div>
         <span
           className={clsx(
-            "rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums",
-            side === "a" ? "bg-a-soft text-a-deep" : "bg-b-soft text-b-deep",
+            'rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums',
+            side === 'a' ? 'bg-a-soft text-a-deep' : 'bg-b-soft text-b-deep',
           )}
         >
           {person.interests.length}/8
@@ -98,7 +100,7 @@ export function PersonPanel({
           side={side}
           onPick={add}
           disabled={full}
-          placeholder={full ? "That's plenty of taste!" : "Add an artist, film, show or book…"}
+          placeholder={full ? "That's plenty of taste!" : 'Add an artist, film, show or book…'}
         />
       )}
 
@@ -111,10 +113,10 @@ export function PersonPanel({
               initial={{ opacity: 0, scale: 0.85, y: 6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85 }}
-              transition={{ type: "spring", stiffness: 420, damping: 30 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 30 }}
               className={clsx(
-                "group flex items-center gap-2 rounded-full border bg-cream py-1 pr-1.5 pl-1",
-                side === "a" ? "border-a/20" : "border-b/20",
+                'group flex items-center gap-2 rounded-full border bg-cream py-1 pr-1.5 pl-1',
+                side === 'a' ? 'border-a/20' : 'border-b/20',
               )}
             >
               <Thumb src={i.image} alt="" kind={i.kind} size={30} />
@@ -162,9 +164,9 @@ export function PersonPanel({
               onClick={() => addIdea(n)}
               disabled={adding !== null}
               className={clsx(
-                "inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:text-ink",
-                accent === "a" ? "hover:border-a/40 hover:bg-a-soft/50" : "hover:border-b/40 hover:bg-b-soft/50",
-                adding === n && "animate-pulse",
+                'inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:text-ink',
+                accent === 'a' ? 'hover:border-a/40 hover:bg-a-soft/50' : 'hover:border-b/40 hover:bg-b-soft/50',
+                adding === n && 'animate-pulse',
               )}
             >
               <Plus className="size-3" />

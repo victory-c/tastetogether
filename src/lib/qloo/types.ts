@@ -43,7 +43,7 @@ export interface QlooEntity {
     affinity?: number;
     distance?: number;
     explainability?: {
-      "signal.interests.entities"?: { entity_id: string; score: number }[];
+      'signal.interests.entities'?: { entity_id: string; score: number }[];
     };
   };
 }

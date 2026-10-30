@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import clsx from "clsx";
-import { Loader2, Search } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import clsx from 'clsx';
+import { Loader2, Search } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
 
-import { KIND_LABEL } from "@/lib/client/format";
-import type { Interest } from "@/lib/taste/types";
+import { KIND_LABEL } from '@/lib/client/format';
+import type { Interest } from '@/lib/taste/types';
 
 export function TasteSearch({
   side,
@@ -13,12 +13,12 @@ export function TasteSearch({
   disabled,
   placeholder,
 }: {
-  side: "a" | "b";
+  side: 'a' | 'b';
   onPick: (i: Interest) => void;
   disabled?: boolean;
   placeholder: string;
 }) {
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState('');
   const [results, setResults] = useState<Interest[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -42,7 +42,7 @@ export function TasteSearch({
         setActive(0);
         setOpen(true);
       } catch (err) {
-        if ((err as Error).name !== "AbortError") setError((err as Error).message || "Search is unavailable.");
+        if ((err as Error).name !== 'AbortError') setError((err as Error).message || 'Search is unavailable.');
       } finally {
         if (!ctrl.signal.aborted) setLoading(false);
       }
@@ -57,15 +57,15 @@ export function TasteSearch({
     const onDoc = (e: MouseEvent) => {
       if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
   const shown = q.trim().length >= 2 ? results : [];
 
   const choose = (i: Interest) => {
     onPick(i);
-    setQ("");
+    setQ('');
     setResults([]);
     setOpen(false);
   };
@@ -74,10 +74,12 @@ export function TasteSearch({
     <div ref={boxRef} className="relative">
       <div
         className={clsx(
-          "flex items-center gap-2 rounded-2xl border bg-paper px-3.5 py-3 transition",
-          side === "a" ? "focus-within:border-a focus-within:ring-4 focus-within:ring-a/15" : "focus-within:border-b focus-within:ring-4 focus-within:ring-b/15",
-          "border-line",
-          disabled && "opacity-50",
+          'flex items-center gap-2 rounded-2xl border bg-paper px-3.5 py-3 transition',
+          side === 'a'
+            ? 'focus-within:border-a focus-within:ring-4 focus-within:ring-a/15'
+            : 'focus-within:border-b focus-within:ring-4 focus-within:ring-b/15',
+          'border-line',
+          disabled && 'opacity-50',
         )}
       >
         <Search className="size-4 shrink-0 text-ink-faint" aria-hidden />
@@ -88,17 +90,17 @@ export function TasteSearch({
           onFocus={() => shown.length > 0 && setOpen(true)}
           onKeyDown={(e) => {
             if (!open || shown.length === 0) return;
-            if (e.key === "ArrowDown") {
+            if (e.key === 'ArrowDown') {
               e.preventDefault();
               setActive((a) => (a + 1) % shown.length);
-            } else if (e.key === "ArrowUp") {
+            } else if (e.key === 'ArrowUp') {
               e.preventDefault();
               setActive((a) => (a - 1 + shown.length) % shown.length);
-            } else if (e.key === "Enter") {
+            } else if (e.key === 'Enter') {
               e.preventDefault();
               const r = shown[active];
               if (r) choose(r);
-            } else if (e.key === "Escape") setOpen(false);
+            } else if (e.key === 'Escape') setOpen(false);
           }}
           placeholder={placeholder}
           className="w-full bg-transparent text-[15px] outline-none placeholder:text-ink-faint"
@@ -131,8 +133,8 @@ export function TasteSearch({
                 choose(r);
               }}
               className={clsx(
-                "flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2",
-                i === active && (side === "a" ? "bg-a-soft/70" : "bg-b-soft/70"),
+                'flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2',
+                i === active && (side === 'a' ? 'bg-a-soft/70' : 'bg-b-soft/70'),
               )}
             >
               <Thumb src={r.image} alt="" kind={r.kind} />
@@ -140,7 +142,7 @@ export function TasteSearch({
                 <p className="truncate text-[15px] font-medium">{r.name}</p>
                 <p className="text-xs text-ink-soft">
                   {KIND_LABEL[r.kind]}
-                  {r.year ? ` · ${r.year}` : ""}
+                  {r.year ? ` · ${r.year}` : ''}
                 </p>
               </div>
             </li>
@@ -151,12 +153,12 @@ export function TasteSearch({
   );
 }
 
-export function Thumb({ src, alt, kind, size = 40 }: { src?: string; alt: string; kind: Interest["kind"]; size?: number }) {
-  const round = kind === "artist" ? "rounded-full" : "rounded-lg";
+export function Thumb({ src, alt, kind, size = 40 }: { src?: string; alt: string; kind: Interest['kind']; size?: number }) {
+  const round = kind === 'artist' ? 'rounded-full' : 'rounded-lg';
   if (!src) {
     return (
       <div
-        className={clsx("grid shrink-0 place-items-center bg-line text-xs font-semibold text-ink-soft", round)}
+        className={clsx('grid shrink-0 place-items-center bg-line text-xs font-semibold text-ink-soft', round)}
         style={{ width: size, height: size }}
         aria-hidden
       >
@@ -166,6 +168,14 @@ export function Thumb({ src, alt, kind, size = 40 }: { src?: string; alt: string
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} width={size} height={size} loading="lazy" className={clsx("shrink-0 object-cover", round)} style={{ width: size, height: size }} />
+    <img
+      src={src}
+      alt={alt}
+      width={size}
+      height={size}
+      loading="lazy"
+      className={clsx('shrink-0 object-cover', round)}
+      style={{ width: size, height: size }}
+    />
   );
 }

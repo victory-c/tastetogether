@@ -101,12 +101,7 @@ export function rankDuo(pool: PoolItem[]): RankedItem[] {
       const fa = fitA[i] ?? 0;
       const fb = fitB[i] ?? 0;
       const quality = p.rating ? Math.max(0, Math.min(1, (p.rating - 3.5) / 1.5)) : 0.3;
-      const fair =
-        0.6 * Math.min(fa, fb) +
-        0.2 * ((fa + fb) / 2) +
-        0.14 * p.contextBonus +
-        0.06 * quality -
-        0.15 * (p.penalty ?? 0);
+      const fair = 0.6 * Math.min(fa, fb) + 0.2 * ((fa + fb) / 2) + 0.14 * p.contextBonus + 0.06 * quality - 0.15 * (p.penalty ?? 0);
       return { id: p.id, fitA: fa, fitB: fb, rankA: rankA[i] ?? pool.length, rankB: rankB[i] ?? pool.length, fair };
     })
     .sort((x, y) => y.fair - x.fair);

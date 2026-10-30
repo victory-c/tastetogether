@@ -1,30 +1,30 @@
-import "server-only";
+import 'server-only';
 
-import { interpretVibe, keywordVibe, llmAvailable, LLM_MODEL, narrate } from "../agent/llm";
-import { entitiesOf, qlooGet, QlooError, type CallStats } from "../qloo/client";
-import type { QlooCompareResponse, QlooCompareTag, QlooEntity, QlooInsightsResponse } from "../qloo/types";
-import { dinnerBeforeDoors, openStatus, planTime } from "./hours";
-import { OCCASIONS } from "./occasions";
-import { rankDuo, type PoolItem } from "./rank";
-import type { Driver, MatchEvent, MatchRequest, Person, PersonFit, Pick, TasteDna, TasteTag } from "./types";
+import { interpretVibe, keywordVibe, llmAvailable, LLM_MODEL, narrate } from '../agent/llm';
+import { entitiesOf, qlooGet, QlooError, type CallStats } from '../qloo/client';
+import type { QlooCompareResponse, QlooCompareTag, QlooEntity, QlooInsightsResponse } from '../qloo/types';
+import { dinnerBeforeDoors, openStatus, planTime } from './hours';
+import { OCCASIONS } from './occasions';
+import { rankDuo, type PoolItem } from './rank';
+import type { Driver, MatchEvent, MatchRequest, Person, PersonFit, Pick, TasteDna, TasteTag } from './types';
 
-const RESTAURANT_TAG = "urn:tag:genre:place:restaurant";
+const RESTAURANT_TAG = 'urn:tag:genre:place:restaurant';
 const POOL_CAP = 50;
 const RESULT_COUNT = 6;
 
-const DNA_SUBTYPES = ["genre", "style", "theme", "audience", "characteristic", "mood", "subgenre", "keyword"];
-const DNA_BLOCK = ["not_for_display", "award", "list", "source", "country", "platform", "language", "rating", "release"];
+const DNA_SUBTYPES = ['genre', 'style', 'theme', 'audience', 'characteristic', 'mood', 'subgenre', 'keyword'];
+const DNA_BLOCK = ['not_for_display', 'award', 'list', 'source', 'country', 'platform', 'language', 'rating', 'release'];
 
-function cleanDnaTags(tags: QlooCompareTag[] | undefined, by: "score" | "count", limit: number, skip = new Set<string>()): TasteTag[] {
+function cleanDnaTags(tags: QlooCompareTag[] | undefined, by: 'score' | 'count', limit: number, skip = new Set<string>()): TasteTag[] {
   const out: TasteTag[] = [];
   const names = new Set<string>();
   const sorted = [...(tags ?? [])].sort((x, y) =>
-    by === "score"
+    by === 'score'
       ? (y.query?.score ?? 0) - (x.query?.score ?? 0)
       : Number(y.query?.count ?? 0) - Number(x.query?.count ?? 0) || (y.popularity ?? 0) - (x.popularity ?? 0),
   );
   for (const t of sorted) {
-    const sub = t.subtype || t.tag_id || "";
+    const sub = t.subtype || t.tag_id || '';
     const key = t.name.toLowerCase();
     if (!DNA_SUBTYPES.some((s) => sub.includes(s)) || DNA_BLOCK.some((b) => sub.includes(b))) continue;
     if (/\d/.test(t.name) || t.name.length > 28 || names.has(key) || skip.has(key)) continue;
@@ -36,16 +36,16 @@ function cleanDnaTags(tags: QlooCompareTag[] | undefined, by: "score" | "count",
 }
 
 function genreLabel(e: QlooEntity): string | undefined {
-  const id = e.properties?.primary_genre?.id ?? "";
-  const last = id.split(":").pop() ?? "";
-  if (last && last !== "restaurant") {
+  const id = e.properties?.primary_genre?.id ?? '';
+  const last = id.split(':').pop() ?? '';
+  if (last && last !== 'restaurant') {
     return last
-      .split("_")
+      .split('_')
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
+      .join(' ');
   }
-  const cuisine = e.tags?.find((t) => (t.type || "").includes("cuisine"));
-  return cuisine?.name ?? "Restaurant";
+  const cuisine = e.tags?.find((t) => (t.type || '').includes('cuisine'));
+  return cuisine?.name ?? 'Restaurant';
 }
 
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -65,7 +65,7 @@ function tagNames(e: QlooEntity): Set<string> {
 }
 
 function shares(e: QlooEntity | undefined): Map<string, number> {
-  const raw = e?.query?.explainability?.["signal.interests.entities"] ?? [];
+  const raw = e?.query?.explainability?.['signal.interests.entities'] ?? [];
   const total = raw.reduce((sum, r) => sum + r.score, 0) || 1;
   return new Map(raw.map((r) => [r.entity_id, r.score / total]));
 }
@@ -95,17 +95,23 @@ function drivers(e: QlooEntity | undefined, person: Person, base: Map<string, nu
     .map((d) => ({ name: d.name, kind: d.kind, share: d.share }));
 }
 
+/** Closed at the planned time is a strong penalty; opening later the same day (e.g. dinner-only for a lunch plan) nearly as strong. */
+function availabilityPenalty(kind: Pick['open']['kind']) {
+  if (kind === 'closed_today' || kind === 'closed_by_then') return 1;
+  if (kind === 'opens_later') return 0.8;
+  return 0;
+}
+
 /** For "Before a show" the performer is a shared taste signal for both people and the venue is the meeting point. */
 function withShow(req: MatchRequest): MatchRequest {
-  if (req.occasion !== "show" || !req.show) return req;
+  if (req.occasion !== 'show' || !req.show) return req;
   const perf = req.show.performer;
-  const add = (p: Person): Person =>
-    perf && !p.interests.some((i) => i.id === perf.id) ? { ...p, interests: [...p.interests, perf] } : p;
+  const add = (p: Person): Person => (perf && !p.interests.some((i) => i.id === perf.id) ? { ...p, interests: [...p.interests, perf] } : p);
   return { ...req, a: add(req.a), b: add(req.b) };
 }
 
 function signalOf(p: Person) {
-  return p.interests.map((i) => i.id).join(",");
+  return p.interests.map((i) => i.id).join(',');
 }
 
 function now() {
@@ -123,17 +129,17 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
   const when = planTime(req.occasion, new Date(), req.show ? dinnerBeforeDoors(req.show.doors) : undefined);
 
   if (req.a.interests.length === 0 || req.b.interests.length === 0) {
-    yield { type: "error", status: "needs_clarification", message: "Each person needs at least one thing they love." };
+    yield { type: 'error', status: 'needs_clarification', message: 'Each person needs at least one thing they love.' };
     return;
   }
 
   try {
     // 1. Shared taste DNA + optional vibe interpretation run in parallel with candidate scouting.
-    yield { type: "step", id: "dna", label: `Mapping where ${req.a.name} and ${req.b.name}'s tastes overlap`, status: "running" };
+    yield { type: 'step', id: 'dna', label: `Mapping where ${req.a.name} and ${req.b.name}'s tastes overlap`, status: 'running' };
     const tDna = now();
     const dnaPromise = qlooGet<QlooCompareResponse>(
-      "/v2/analysis/compare",
-      { "a.signal.interests.entities": signalOf(input.a), "b.signal.interests.entities": signalOf(input.b) },
+      '/v2/analysis/compare',
+      { 'a.signal.interests.entities': signalOf(input.a), 'b.signal.interests.entities': signalOf(input.b) },
       stats,
     );
 
@@ -141,32 +147,30 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
     let vibeTags: TasteTag[] = [];
     let avoidTags: TasteTag[] = [];
     let priceMax = req.priceMax;
-    const vibePromise = vibeText
-      ? interpretVibe(vibeText, req.occasion, stats).catch(() => null)
-      : Promise.resolve(null);
+    const vibePromise = vibeText ? interpretVibe(vibeText, req.occasion, stats).catch(() => null) : Promise.resolve(null);
 
     const visited = new Set([...(req.a.visited ?? []), ...(req.b.visited ?? [])]);
     const exclude = [...new Set([...visited, ...(req.exclude ?? [])])];
 
     const scout = (radius: number, price: number | null) => {
       const base = {
-        "filter.type": "urn:entity:place",
-        "filter.location": `POINT(${req.area.lon} ${req.area.lat})`,
-        "filter.location.radius": radius,
-        "filter.tags": RESTAURANT_TAG,
-        "filter.price_level.max": price ?? undefined,
-        "filter.exclude.entities": exclude.length ? exclude.join(",") : undefined,
+        'filter.type': 'urn:entity:place',
+        'filter.location': `POINT(${req.area.lon} ${req.area.lat})`,
+        'filter.location.radius': radius,
+        'filter.tags': RESTAURANT_TAG,
+        'filter.price_level.max': price ?? undefined,
+        'filter.exclude.entities': exclude.length ? exclude.join(',') : undefined,
         take: 50,
       };
       return Promise.all([
-        qlooGet<QlooInsightsResponse>("/v2/insights", { ...base, "signal.interests.entities": signalOf(req.a) }, stats),
-        qlooGet<QlooInsightsResponse>("/v2/insights", { ...base, "signal.interests.entities": signalOf(req.b) }, stats),
-        qlooGet<QlooInsightsResponse>("/v2/insights", base, stats),
+        qlooGet<QlooInsightsResponse>('/v2/insights', { ...base, 'signal.interests.entities': signalOf(req.a) }, stats),
+        qlooGet<QlooInsightsResponse>('/v2/insights', { ...base, 'signal.interests.entities': signalOf(req.b) }, stats),
+        qlooGet<QlooInsightsResponse>('/v2/insights', base, stats),
       ]);
     };
 
     const dnaBody = await dnaPromise;
-    const shared = cleanDnaTags(dnaBody.results?.tags, "score", 6);
+    const shared = cleanDnaTags(dnaBody.results?.tags, 'score', 6);
     const sharedNames = new Set(shared.map((t) => t.name.toLowerCase()));
     // Tags Qloo lists for both sides are common ground, not what makes each person distinct.
     const aNames = new Set((dnaBody.results?.a ?? []).map((t) => t.name.toLowerCase()));
@@ -174,44 +178,54 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
     const notDistinct = new Set([...sharedNames, ...both]);
     const dna: TasteDna = {
       shared,
-      a: cleanDnaTags(dnaBody.results?.a, "count", 4, notDistinct),
-      b: cleanDnaTags(dnaBody.results?.b, "count", 4, notDistinct),
+      a: cleanDnaTags(dnaBody.results?.a, 'count', 4, notDistinct),
+      b: cleanDnaTags(dnaBody.results?.b, 'count', 4, notDistinct),
     };
-    yield { type: "dna", dna };
+    yield { type: 'dna', dna };
     yield {
-      type: "step",
-      id: "dna",
+      type: 'step',
+      id: 'dna',
       label: `Mapping where ${req.a.name} and ${req.b.name}'s tastes overlap`,
-      status: "done",
-      detail: shared.length ? `Shared: ${shared.slice(0, 3).map((t) => t.name).join(", ")}` : "Few shared tags — we'll find a bridge",
+      status: 'done',
+      detail: shared.length
+        ? `Shared: ${shared
+            .slice(0, 3)
+            .map((t) => t.name)
+            .join(', ')}`
+        : "Few shared tags — we'll find a bridge",
       ms: Math.round(now() - tDna),
     };
 
     if (vibeText) {
-      yield { type: "step", id: "vibe", label: `Translating “${vibeText.slice(0, 48)}” into Qloo tags`, status: "running" };
+      yield { type: 'step', id: 'vibe', label: `Translating “${vibeText.slice(0, 48)}” into Qloo tags`, status: 'running' };
       const tVibe = now();
       const plan = await vibePromise;
       if (plan) {
         vibeTags = plan.boost;
         avoidTags = plan.avoid;
         if (plan.priceMax && (!priceMax || plan.priceMax < priceMax)) priceMax = plan.priceMax as 1 | 2 | 3 | 4;
-        yield { type: "vibe", tags: vibeTags, source: "agent" };
+        yield { type: 'vibe', tags: vibeTags, source: 'agent' };
       } else {
         vibeTags = keywordVibe(vibeText);
-        yield { type: "vibe", tags: vibeTags, source: "keywords" };
+        yield { type: 'vibe', tags: vibeTags, source: 'keywords' };
       }
       yield {
-        type: "step",
-        id: "vibe",
+        type: 'step',
+        id: 'vibe',
         label: `Translating “${vibeText.slice(0, 48)}” into Qloo tags`,
-        status: "done",
-        detail: vibeTags.length ? vibeTags.map((t) => t.name).join(" · ") : "No matching tags; using the occasion only",
+        status: 'done',
+        detail: vibeTags.length ? vibeTags.map((t) => t.name).join(' · ') : 'No matching tags; using the occasion only',
         ms: Math.round(now() - tVibe),
       };
     }
 
     // 2. Scout candidates near the meeting point from three angles: each person's taste and a no-taste baseline.
-    yield { type: "step", id: "scout", label: `Scouting ${req.show ? `around ${req.area.label}` : req.area.label} through each person's taste`, status: "running" };
+    yield {
+      type: 'step',
+      id: 'scout',
+      label: `Scouting ${req.show ? `around ${req.area.label}` : req.area.label} through each person's taste`,
+      status: 'running',
+    };
     const tScout = now();
     let radius = req.area.radius;
     let relaxed: string | undefined;
@@ -226,7 +240,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
           const e = list[i];
           if (!e || seen.has(e.entity_id)) continue;
           if (e.properties?.is_closed) continue;
-          if (!occ.allow(e.properties?.primary_genre?.id ?? "")) continue;
+          if (!occ.allow(e.properties?.primary_genre?.id ?? '')) continue;
           const names = tagNames(e);
           if (avoidTags.some((t) => names.has(t.name.toLowerCase()))) continue;
           seen.set(e.entity_id, e);
@@ -243,61 +257,66 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       pool = collect();
     }
     const popularBaseline = entitiesOf(baseBody)
-      .filter((e) => occ.allow(e.properties?.primary_genre?.id ?? ""))
+      .filter((e) => occ.allow(e.properties?.primary_genre?.id ?? ''))
       .slice(0, 5)
       .map((e) => e.name);
     yield {
-      type: "step",
-      id: "scout",
+      type: 'step',
+      id: 'scout',
       label: `Scouting ${req.show ? `around ${req.area.label}` : req.area.label} through each person's taste`,
-      status: "done",
-      detail: `${pool.length} ${req.occasion === "coffee" ? "cafés" : "restaurants"} in the shared pool${visited.size ? ` · skipped ${visited.size} you've been to` : ""}${relaxed ? " · search widened" : ""}`,
+      status: 'done',
+      detail: `${pool.length} ${req.occasion === 'coffee' ? 'cafés' : 'restaurants'} in the shared pool${visited.size ? ` · skipped ${visited.size} you've been to` : ''}${relaxed ? ' · search widened' : ''}`,
       ms: Math.round(now() - tScout),
     };
 
     if (pool.length === 0) {
       yield {
-        type: "error",
-        status: "no_match",
+        type: 'error',
+        status: 'no_match',
         message: "No places matched every constraint here. Try a different area, a higher price ceiling, or allow places you've been.",
       };
       return;
     }
 
     // 3. Cross-score: ask Qloo how much EACH person would like EVERY place in the shared pool.
-    yield { type: "step", id: "score", label: `Scoring all ${pool.length} spots for ${req.a.name} and for ${req.b.name}`, status: "running" };
+    yield {
+      type: 'step',
+      id: 'score',
+      label: `Scoring all ${pool.length} spots for ${req.a.name} and for ${req.b.name}`,
+      status: 'running',
+    };
     const tScore = now();
-    const ids = pool.map((e) => e.entity_id).join(",");
+    const ids = pool.map((e) => e.entity_id).join(',');
     const crossParams = {
-      "filter.type": "urn:entity:place",
-      "filter.results.entities": ids,
-      "feature.explainability": true,
+      'filter.type': 'urn:entity:place',
+      'filter.results.entities': ids,
+      'feature.explainability': true,
       take: pool.length,
     };
     const [aScored, bScored] = await Promise.all([
-      qlooGet<QlooInsightsResponse>("/v2/insights", { ...crossParams, "signal.interests.entities": signalOf(req.a) }, stats),
-      qlooGet<QlooInsightsResponse>("/v2/insights", { ...crossParams, "signal.interests.entities": signalOf(req.b) }, stats),
+      qlooGet<QlooInsightsResponse>('/v2/insights', { ...crossParams, 'signal.interests.entities': signalOf(req.a) }, stats),
+      qlooGet<QlooInsightsResponse>('/v2/insights', { ...crossParams, 'signal.interests.entities': signalOf(req.b) }, stats),
     ]);
     const aById = new Map(entitiesOf(aScored).map((e) => [e.entity_id, e]));
     const bById = new Map(entitiesOf(bScored).map((e) => [e.entity_id, e]));
     const scored = pool.filter((e) => aById.get(e.entity_id)?.query?.affinity != null && bById.get(e.entity_id)?.query?.affinity != null);
     yield {
-      type: "step",
-      id: "score",
+      type: 'step',
+      id: 'score',
       label: `Scoring all ${pool.length} spots for ${req.a.name} and for ${req.b.name}`,
-      status: "done",
+      status: 'done',
       detail: `${scored.length} spots scored for both people`,
       ms: Math.round(now() - tScore),
     };
-    yield { type: "pool", scored: scored.length, popularBaseline, skipped: visited.size };
+    yield { type: 'pool', scored: scored.length, popularBaseline, skipped: visited.size };
 
     if (scored.length === 0) {
-      yield { type: "error", status: "provider_unavailable", message: "Qloo couldn't score these places right now. Please try again." };
+      yield { type: 'error', status: 'provider_unavailable', message: "Qloo couldn't score these places right now. Please try again." };
       return;
     }
 
     // 4. Negotiate: per-person normalised fit, then the fairest shared pick.
-    yield { type: "step", id: "negotiate", label: "Negotiating the fairest table for both of you", status: "running" };
+    yield { type: 'step', id: 'negotiate', label: 'Negotiating the fairest table for both of you', status: 'running' };
     const tNeg = now();
     const boostNames = new Set([...occ.boost, ...vibeTags.map((t) => t.name)].map((n) => n.toLowerCase()));
     const penaltyNames = new Set(occ.penalty.map((n) => n.toLowerCase()));
@@ -311,7 +330,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
         affinityA: aById.get(e.entity_id)!.query!.affinity!,
         affinityB: bById.get(e.entity_id)!.query!.affinity!,
         contextBonus: Math.max(0, Math.min(1, hits / 3 - misses * 0.5)),
-        penalty: ["closed_today", "closed_by_then"].includes(openStatus(e.properties?.hours, when).kind) ? 1 : 0,
+        penalty: availabilityPenalty(openStatus(e.properties?.hours, when).kind),
         rating: e.properties?.business_rating,
       };
     });
@@ -320,23 +339,29 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
     const baseB = baselineShares(scored.map((e) => bById.get(e.entity_id)));
     const byId = new Map(scored.map((e) => [e.entity_id, e]));
     yield {
-      type: "negotiation",
+      type: 'negotiation',
       rows: ranked.slice(0, 5).map((r) => ({ name: byId.get(r.id)!.name, rankA: r.rankA, rankB: r.rankB, of: ranked.length })),
     };
     const top = ranked.slice(0, RESULT_COUNT);
     const nameOf = (id: string) => byId.get(id)!.name;
     yield {
-      type: "contrast",
+      type: 'contrast',
       popular: popularBaseline.slice(0, 3),
-      aloneA: [...ranked].sort((x, y) => x.rankA - y.rankA).slice(0, 3).map((r) => nameOf(r.id)),
-      aloneB: [...ranked].sort((x, y) => x.rankB - y.rankB).slice(0, 3).map((r) => nameOf(r.id)),
+      aloneA: [...ranked]
+        .sort((x, y) => x.rankA - y.rankA)
+        .slice(0, 3)
+        .map((r) => nameOf(r.id)),
+      aloneB: [...ranked]
+        .sort((x, y) => x.rankB - y.rankB)
+        .slice(0, 3)
+        .map((r) => nameOf(r.id)),
       together: ranked.slice(0, 3).map((r) => nameOf(r.id)),
     };
     yield {
-      type: "step",
-      id: "negotiate",
-      label: "Negotiating the fairest table for both of you",
-      status: "done",
+      type: 'step',
+      id: 'negotiate',
+      label: 'Negotiating the fairest table for both of you',
+      status: 'done',
       detail: top[0] ? `${byId.get(top[0].id)!.name}: #${top[0].rankA} for ${req.a.name}, #${top[0].rankB} for ${req.b.name}` : undefined,
       ms: Math.round(now() - tNeg),
     };
@@ -347,9 +372,9 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       const names = tagNames(e);
       const p = e.properties ?? {};
       const occasionTags = occ.boost.filter((n) => names.has(n.toLowerCase())).slice(0, 3);
-      const noise = (e.tags ?? []).find((t) => (t.type || "").includes("noise_level"))?.name;
+      const noise = (e.tags ?? []).find((t) => (t.type || '').includes('noise_level'))?.name;
       const vibe = (e.tags ?? [])
-        .filter((t) => /ambience|decor/.test(t.type || ""))
+        .filter((t) => /ambience|decor/.test(t.type || ''))
         .map((t) => t.name)
         .filter((n, i, xs) => xs.indexOf(n) === i)
         .slice(0, 4);
@@ -370,7 +395,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
         noise,
         matchedVibe: vibeTags.filter((t) => names.has(t.name.toLowerCase())).map((t) => t.name),
         website: p.website,
-        mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${e.name} ${p.address ?? ""}`)}`,
+        mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${e.name} ${p.address ?? ''}`)}`,
         fair: r.fair,
         fitA: fit(r.rankA, r.fitA, drivers(aById.get(r.id), req.a, baseA)),
         fitB: fit(r.rankB, r.fitB, drivers(bById.get(r.id), req.b, baseB)),
@@ -378,7 +403,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
     });
 
     // 5. Explain: LLM copy grounded only in the facts above; deterministic template if unavailable.
-    yield { type: "step", id: "explain", label: "Writing why each pick works for both of you", status: "running" };
+    yield { type: 'step', id: 'explain', label: 'Writing why each pick works for both of you', status: 'running' };
     const tExp = now();
     let headline: string | undefined;
     let llmUsed: string | null = null;
@@ -416,66 +441,81 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       // Fall through to templates.
     }
     picks.forEach((p, i) => {
-      if (!p.why) p.why = templateWhy(p, req, i, dna.shared.map((t) => t.name));
+      if (!p.why)
+        p.why = templateWhy(
+          p,
+          req,
+          i,
+          dna.shared.map((t) => t.name),
+        );
     });
     yield {
-      type: "step",
-      id: "explain",
-      label: "Writing why each pick works for both of you",
-      status: "done",
-      detail: llmUsed ? `Written by ${llmUsed} from Qloo facts only` : "Fact templates (LLM not configured)",
+      type: 'step',
+      id: 'explain',
+      label: 'Writing why each pick works for both of you',
+      status: 'done',
+      detail: llmUsed ? `Written by ${llmUsed} from Qloo facts only` : 'Fact templates (LLM not configured)',
       ms: Math.round(now() - tExp),
     };
 
     yield {
-      type: "result",
+      type: 'result',
       picks,
       headline,
       relaxed,
       when: when.label,
-      stats: { qlooCalls: stats.calls, cached: stats.cached, ms: Math.round(now() - t0), llm: llmUsed ?? (llmAvailable() ? "fallback" : null) },
+      stats: {
+        qlooCalls: stats.calls,
+        cached: stats.cached,
+        ms: Math.round(now() - t0),
+        llm: llmUsed ?? (llmAvailable() ? 'fallback' : null),
+      },
     };
   } catch (err) {
     yield {
-      type: "error",
-      status: "provider_unavailable",
-      message: err instanceof QlooError ? `${err.message} Please try again in a moment.` : "Something went wrong talking to Qloo. Please try again.",
+      type: 'error',
+      status: 'provider_unavailable',
+      message:
+        err instanceof QlooError
+          ? `${err.message} Please try again in a moment.`
+          : 'Something went wrong talking to Qloo. Please try again.',
     };
   }
 }
 
 function pctLabel(rank: number, of: number) {
   const pct = Math.max(1, Math.round((rank / of) * 100));
-  return rank === 1 ? "#1" : `top ${pct}%`;
+  return rank === 1 ? '#1' : `top ${pct}%`;
 }
 
 /** Deterministic, fact-only copy used when no LLM is configured (or it fails). Varies by card so it never reads canned. */
 function templateWhy(p: Pick, req: MatchRequest, index: number, shared: string[]) {
   const a = p.fitA.drivers[0]?.name;
   const b = p.fitB.drivers[0]?.name;
-  const cuisine = p.cuisine && p.cuisine !== "Restaurant" ? p.cuisine : "";
-  const cuisineWords = new Set(cuisine.toLowerCase().split(" "));
+  const cuisine = p.cuisine && p.cuisine !== 'Restaurant' ? p.cuisine : '';
+  const cuisineWords = new Set(cuisine.toLowerCase().split(' '));
   const vibe = p.vibeTags
     .map((v) => v.toLowerCase())
     .filter((v) => !cuisineWords.has(v))
     .slice(0, 2)
-    .join(" and ");
-  const room = [vibe, cuisine, "spot"].filter(Boolean).join(" ");
-  const ranks = `It sits in ${req.a.name}'s ${pctLabel(p.fitA.rank, p.fitA.of)} and ${req.b.name}'s ${pctLabel(p.fitB.rank, p.fitB.of)} of ${p.fitA.of} nearby spots`;
-  const dish = p.dishes[0] ? ` Start with the ${p.dishes[0].toLowerCase()}.` : "";
+    .join(' and ');
+  const room = [vibe, cuisine, 'spot'].filter(Boolean).join(' ');
+  const dish = p.dishes[0] ? ` Start with the ${p.dishes[0].toLowerCase()}.` : '';
   const sharedLine = shared.length >= 2 ? `${shared[0]!.toLowerCase()} and ${shared[1]!.toLowerCase()}` : null;
 
-  if (a && b) return `${req.a.name}'s ${a} side and ${req.b.name}'s ${b} side both point to this ${room}. ${ranks}.${dish}`;
+  if (a && b) return `${req.a.name}'s ${a} side and ${req.b.name}'s ${b} side both point to this ${room}.${dish}`;
   if (a || b) {
     const who = a ? req.a.name : req.b.name;
     const other = a ? req.b.name : req.a.name;
-    return `Qloo ties this ${room} to ${who}'s love of ${a ?? b}, and it still scores well for ${other}. ${ranks}.${dish}`;
+    return `Qloo ties this ${room} to ${who}'s love of ${a ?? b}, and it still lands in ${other}'s ${a ? pctLabel(p.fitB.rank, p.fitB.of) : pctLabel(p.fitA.rank, p.fitA.of)}.${dish}`;
   }
   const openers = [
-    sharedLine ? `For two people who share a weakness for ${sharedLine}, this ${room} is the common ground.` : `This ${room} is the common ground.`,
+    sharedLine
+      ? `For two people who share a weakness for ${sharedLine}, this ${room} is the common ground.`
+      : `This ${room} is the common ground.`,
     `A ${room} that neither of you has to compromise on.`,
     `The safe bet that still feels like a choice: a ${room} that suits both profiles.`,
     `Different playlists, same table: this ${room} works for both of you.`,
   ];
-  return `${openers[index % openers.length]} ${ranks}.${dish}`;
+  return `${openers[index % openers.length]}${dish}`;
 }
