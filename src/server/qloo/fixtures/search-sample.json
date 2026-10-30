@@ -1,0 +1,135 @@
+{
+  "results": [
+    {
+      "name": "Fixture Bistro",
+      "entity_id": "00000000-0000-4000-8000-000000000001",
+      "types": ["urn:entity:place"],
+      "tags": [
+        {
+          "name": "Sample audience",
+          "tag_id": "urn:tag:sample_identity:fixture:sample_audience",
+          "type": "urn:tag:sample_identity:fixture",
+          "value": "urn:tag:sample_identity:fixture:sample_audience"
+        },
+        {
+          "name": "Sample keyword",
+          "tag_id": "urn:tag:sample_source:keyword:place:sample_keyword",
+          "type": "urn:tag:sample_source:keyword:place",
+          "value": "urn:tag:sample_source:keyword:place:sample_keyword"
+        },
+        {
+          "name": "Sample style",
+          "tag_id": "urn:tag:sample_style:fixture:sample_style",
+          "type": "urn:tag:sample_style:fixture",
+          "value": "urn:tag:sample_style:fixture:sample_style"
+        }
+      ],
+      "properties": {
+        "address": "1 Example St, Testville, CA 00000",
+        "hours": {
+          "sunday": [
+            {
+              "closed": true
+            }
+          ],
+          "monday": [
+            {
+              "closed": false,
+              "opens": "T18:00:00",
+              "closes": "T21:00:00"
+            }
+          ],
+          "tuesday": [
+            {
+              "closed": false,
+              "opens": "T10:00:00",
+              "closes": "T13:00:00"
+            },
+            {
+              "closed": false,
+              "opens": "T18:00:00",
+              "closes": "T21:00:00"
+            }
+          ],
+          "wednesday": [
+            {
+              "closed": false,
+              "opens": "T10:00:00",
+              "closes": "T13:00:00"
+            },
+            {
+              "closed": false,
+              "opens": "T18:00:00",
+              "closes": "T21:00:00"
+            }
+          ],
+          "thursday": [
+            {
+              "closed": false,
+              "opens": "T10:00:00",
+              "closes": "T13:00:00"
+            },
+            {
+              "closed": false,
+              "opens": "T18:00:00",
+              "closes": "T21:00:00"
+            }
+          ],
+          "friday": [
+            {
+              "closed": false,
+              "opens": "T10:00:00",
+              "closes": "T14:00:00"
+            },
+            {
+              "closed": false,
+              "opens": "T18:00:00",
+              "closes": "T22:00:00"
+            }
+          ],
+          "saturday": [
+            {
+              "closed": false,
+              "opens": "T10:00:00",
+              "closes": "T14:00:00"
+            },
+            {
+              "closed": false,
+              "opens": "T18:00:00",
+              "closes": "T22:00:00"
+            }
+          ]
+        },
+        "external": {
+          "michelin": {
+            "id": "000000"
+          },
+          "resy": {
+            "neighborhood": "Testville",
+            "cuisine": "Sample Cuisine",
+            "rating": 4.2,
+            "min_party_size": 1,
+            "id": "0",
+            "why_we_like_it": "Synthetic placeholder text for tests.",
+            "url": "https://example.com/reservations/fixture-bistro",
+            "max_party_size": 6,
+            "rating_count": 100
+          },
+          "tripadvisor": {
+            "id": "d0000000",
+            "rating": 4.0,
+            "rating_count": 50
+          },
+          "google_place": {
+            "id": "0000000000000000",
+            "place_id": "fixture-place-0001"
+          }
+        }
+      },
+      "location": {
+        "lat": 37.5,
+        "lon": -122.5
+      }
+    }
+  ]
+}

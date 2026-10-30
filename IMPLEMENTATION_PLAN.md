@@ -1,187 +1,191 @@
-# TasteTogether 多 Agent 实施计划
+# TasteTogether Multi-Agent Implementation Plan
 
-日期：2026-10-30 · 依据：[TasteTogether_PRD.md](TasteTogether_PRD.md) v0.2 · 截止：20:45 PDT（内部目标 19:45 PDT）
+Original planning document (translated from Chinese). The shipped product evolved beyond this spec — see README.md.
 
-本文件定义分层、目录、接口契约、任务拆分与派发规则。**主控（Claude）负责所有决定正确性与安全性的部分；GPT‑6.1 Terra（high，经 `codex exec` CLI）只做边界清晰、契约已固定、出错代价低的部分。** 每个派发任务都有明确的文件所有权，主控审查后才合入。
+Date: 2026-10-30 · Based on: [TasteTogether_PRD.md](TasteTogether_PRD.md) v0.2 · Deadline: 20:45 PDT (internal target 19:45 PDT)
+
+This document defines the layering, directory layout, interface contracts, task breakdown, and dispatch rules. **The lead (Claude) owns every part that determines correctness and security; GPT‑6.1 Terra (high, via the `codex exec` CLI) only does parts that are clearly bounded, have frozen contracts, and are cheap to get wrong.** Every dispatched task has explicit file ownership and is merged only after the lead has reviewed it.
 
 ---
 
-## 0 G0 可行性实测结论（2026-10-30 01:56 PDT，真实 key）
+## 0 G0 feasibility results (2026-10-30 01:56 PDT, real key)
 
-| 项 | 结果 | 对实现的影响 |
+| Item | Result | Implication for implementation |
 | --- | --- | --- |
-| Host / 认证 | `https://hackathon.api.qloo.com`，header `X-Api-Key` | 适配器只在服务端读取 `QLOO_API_KEY` |
-| 实体查找 | `GET /search?query=…&types=urn:entity:place&take=n` 返回 `entity_id`、`properties.address`、`hours`、`geocode`、`external.resy/google_place` | 手动历史可解析为真实 entity ID；未命中保留 unresolved |
-| 推荐 | `GET /v2/insights`，`filter.type=urn:entity:place`、`signal.interests.entities=…`、`filter.tags=urn:tag:genre:place:restaurant` | 每人独立信号各调一次 |
-| 地点 | **`filter.location.query=Berkeley, CA` 被解析到 South Carolina，禁止使用**；`filter.location=POINT(-122.2727 37.8716)` + `filter.location.radius=4000`（米）正确 | 区域一律用 WKT 点 + 半径；返回 `query.distance` 为直线距离（米），UI 标注 "straight-line" |
-| 价格 | `properties.price_level` 1–4，可能为 null；支持 `filter.price_level.max` | 价格档位硬过滤；null → "Price unverified"，严格预算时进入待确认 |
-| 营业时间 | `properties.hours` 按星期列出 `opens/closes`（`T17:00:00`，无时区），`is_closed` | 按 America/Los_Angeles 解释；缺失显示 "Hours unverified" |
-| 分数 | `query.affinity` 0–1 | **不跨查询比较原始值**，只在同一次查询内转成名次效用 |
-| 补充评估 | `filter.results.entities=<id,id,…>` 可限定结果集，对指定候选按某人信号打分（6/6 返回） | PRD §6.4 的"补充评估"可实现，见 §3 |
-| 双方自然重叠 | A（Chez Panisse）20 条 vs B（Cheese Board）40 条，交集仅 1 | 只取交集会假性无结果 → 必须做补充评估 |
-| 延迟 | 单次 insights ≈ 0.9 s | 30 s 预算充裕；仍设 8 s 超时 + 1 次重试 |
+| Host / auth | `https://hackathon.api.qloo.com`, header `X-Api-Key` | The adapter reads `QLOO_API_KEY` on the server only |
+| Entity lookup | `GET /search?query=…&types=urn:entity:place&take=n` returns `entity_id`, `properties.address`, `hours`, `geocode`, `external.resy/google_place` | Manual history can be resolved to real entity IDs; misses stay unresolved |
+| Recommendations | `GET /v2/insights`, `filter.type=urn:entity:place`, `signal.interests.entities=…`, `filter.tags=urn:tag:genre:place:restaurant` | One call per person, each with that person's independent signal |
+| Location | **`filter.location.query=Berkeley, CA` resolves to South Carolina — do not use it**; `filter.location=POINT(-122.2727 37.8716)` + `filter.location.radius=4000` (meters) is correct | Areas always use a WKT point + radius; the returned `query.distance` is straight-line distance (meters), labeled "straight-line" in the UI |
+| Price | `properties.price_level` 1–4, may be null; `filter.price_level.max` is supported | Hard filter on price level; null → "Price unverified", and the run enters pending confirmation when the budget is strict |
+| Opening hours | `properties.hours` lists `opens/closes` per weekday (`T17:00:00`, no time zone), plus `is_closed` | Interpreted as America/Los_Angeles; when missing, show "Hours unverified" |
+| Scores | `query.affinity` 0–1 | **Never compare raw values across queries**; only convert them to rank utility within a single query |
+| Supplementary evaluation | `filter.results.entities=<id,id,…>` restricts the result set, scoring the specified candidates by one person's signal (6/6 returned) | The "supplementary evaluation" in PRD §6.4 is feasible; see §3 |
+| Natural overlap between the two people | A (Chez Panisse) 20 results vs. B (Cheese Board) 40 results; the intersection is only 1 | Taking only the intersection would produce false "no results" → supplementary evaluation is required |
+| Latency | A single insights call ≈ 0.9 s | The 30 s budget is ample; still set an 8 s timeout + 1 retry |
 
-结论：G0 通过，继续比赛冲刺。
-
----
-
-## 1 技术栈（实现选择）
-
-- **Next.js（App Router）+ TypeScript strict**，前后端一体，部署 Vercel。
-- **数据库：libSQL（`@libsql/client`）**：本地 `file:./data/local.db`，线上 Turso `libsql://…`；同一份 SQL 与代码。手写 SQL 迁移，避免 ORM 生成步骤。
-- **校验：zod**（所有 API 入参与 Qloo 响应映射）。
-- **测试：vitest**（领域纯函数 + 适配器 mock + 路由权限）。
-- **样式：Tailwind CSS**。
-- **LLM：可选**。设 `ANTHROPIC_API_KEY` 时仅用于对已排序的结构化事实生成英文解释；未设或失败 → 事实模板降级（PRD §10）。排序永远不由 LLM 决定。
-- **会话：匿名、服务端签发的 HMAC 签名 cookie**（`SESSION_SECRET`），一个浏览器 = 一个用户。
+Conclusion: G0 passed; continue the competition sprint.
 
 ---
 
-## 2 分层架构
+## 1 Tech stack (implementation choices)
+
+- **Next.js (App Router) + TypeScript strict**, full-stack in one project, deployed on Vercel.
+- **Database: libSQL (`@libsql/client`)**: `file:./data/local.db` locally, Turso `libsql://…` in production; the same SQL and code for both. Hand-written SQL migrations, avoiding an ORM generation step.
+- **Validation: zod** (all API inputs and Qloo response mapping).
+- **Testing: vitest** (pure domain functions + adapter mocks + route permissions).
+- **Styling: Tailwind CSS**.
+- **LLM: optional**. When `ANTHROPIC_API_KEY` is set, it is used only to generate English explanations from already-ranked structured facts; if it is unset or fails → fall back to factual templates (PRD §10). Ranking is never decided by the LLM.
+- **Sessions: anonymous, server-issued, HMAC-signed cookie** (`SESSION_SECRET`); one browser = one user.
+
+---
+
+## 2 Layered architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│ L5  UI（src/app/(pages)、src/components）  只调 L4 HTTP API    │  ← GPT（按契约）
-│     所有文案取自 src/copy/en.ts                               │
-├──────────────────────────────────────────────────────────────┤
-│ L4  HTTP 路由（src/app/api/**/route.ts）                      │  ← 主控写模板与敏感路由
-│     解析 zod → 取会话 → 调 L3 → 映射为英文错误                  │     GPT 写同构 CRUD 路由
-├──────────────────────────────────────────────────────────────┤
-│ L3  服务/编排（src/server/services）                          │  ← 主控
-│     recommend（协调流程 + 状态机）、sessions、memories、feedback│
-├───────────────┬───────────────────────┬──────────────────────┤
-│ L2a 持久化     │ L2b Qloo 适配器        │ L2c LLM 适配器        │
-│ src/server/db  │ src/server/qloo        │ src/server/llm        │  ← 主控（GPT 补 fixtures）
-│ 仓储 + 所有权校验│ 超时/重试/预算/映射     │ 受限解释 + 模板降级     │
-├───────────────┴───────────────────────┴──────────────────────┤
-│ L1  领域纯函数（src/domain）无 I/O                             │  ← 主控
-│     types、hardFilter、novelty、ranking、decision、validate     │
-└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│ L5  UI (src/app/(pages), src/components): calls only the L4 HTTP API │  ← GPT (per contract)
+│     All copy comes from src/copy/en.ts                               │
+├──────────────────────────────────────────────────────────────────────┤
+│ L4  HTTP routes (src/app/api/**/route.ts)                            │  ← Lead writes the template and sensitive routes
+│     parse zod → get session → call L3 → map to English errors        │     GPT writes same-pattern CRUD routes
+├──────────────────────────────────────────────────────────────────────┤
+│ L3  Services/orchestration (src/server/services)                     │  ← Lead
+│     recommend (coordination flow + state machine), sessions,         │
+│     memories, feedback                                               │
+├──────────────────────┬───────────────────────┬───────────────────────┤
+│ L2a Persistence      │ L2b Qloo adapter      │ L2c LLM adapter       │
+│ src/server/db        │ src/server/qloo       │ src/server/llm        │  ← Lead (GPT adds fixtures)
+│ repos + ownership    │ timeout/retry/budget/ │ constrained explain + │
+│ checks               │ mapping               │ template fallback     │
+├──────────────────────┴───────────────────────┴───────────────────────┤
+│ L1  Pure domain functions (src/domain), no I/O                       │  ← Lead
+│     types, hardFilter, novelty, ranking, decision, validate          │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-依赖方向只能向下：L1 不 import 任何其他层；L2 只 import L1；L5 只通过 `fetch('/api/…')` 与 `src/lib/api-types.ts` 中的共享类型交互，**不得 import `src/server/**`**（防止密钥进入浏览器包，用 `import 'server-only'` 强制）。
+Dependencies may only point downward: L1 imports no other layer; L2 imports only L1; L5 interacts only through `fetch('/api/…')` and the shared types in `src/lib/api-types.ts`, and **must not import `src/server/**`** (to keep secrets out of the browser bundle; enforced with `import 'server-only'`).
 
-### 目录结构
+### Directory structure
 
 ```
 src/
   domain/            L1  types.ts filters.ts ranking.ts decision.ts hours.ts validate.ts  (+ *.test.ts)
   server/
-    auth/session.ts  L2  签名 cookie、getCurrentUser()
+    auth/session.ts  L2  signed cookie, getCurrentUser()
     db/              L2  client.ts migrate.ts migrations/001_init.sql repos/*.ts
     qloo/            L2  client.ts map.ts types.ts fixtures/*.json
     llm/             L2  explain.ts templates.ts
     services/        L3  recommend.ts sessions.ts memories.ts feedback.ts demo.ts
-    http.ts          L4  路由公共工具：json()、errors、withUser()
+    http.ts          L4  shared route utilities: json(), errors, withUser()
   app/
     api/**/route.ts  L4
     page.tsx …       L5
   components/        L5
-  copy/en.ts         L5  全部用户可见英文文案（集中管理）
-  lib/api-types.ts   L4/L5 共享的请求/响应类型（无 server 依赖）
+  copy/en.ts         L5  all user-visible English copy (managed centrally)
+  lib/api-types.ts   L4/L5 shared request/response types (no server dependencies)
 scripts/ setup-qloo.sh, seed-demo.ts, qloo-smoke.ts
 ```
 
 ---
 
-## 3 协调与排序算法（P0，主控实现，可复现）
+## 3 Coordination and ranking algorithm (P0, implemented by the lead, reproducible)
 
-输入：参与者 P ∈ {A} 或 {A,B}，约束 C（中心点、半径、价格上限、禁忌标签、时间窗口、场景、决策模式、新鲜度开关），本次否决集合 R。
+Input: participants P ∈ {A} or {A,B}; constraints C (center point, radius, price cap, restricted tags, time window, occasion, decision mode, novelty toggle); and this session's rejection set R.
 
-1. **约束校验**：缺中心点/半径 → `needs_clarification`。用户写了精确人均（如 "$30 per person"）→ 保留原文 `budget_note`，筛选只用价格档位，并加入 `conditions_to_confirm`。
-2. **授权视图**：每个参与者只导出 `{positive_entity_ids, excluded_tags, price_preference, visited_place_ids, has_unresolved}`，不导出完整历史。
-3. **发现（discover）**：对每个 p 调一次 insights（p 自己的正向实体、地点、餐厅标签、价格上限、take=30）。
-4. **合并**：候选并集 U，按 entity_id 去重。
-5. **硬过滤**（`domain/filters.ts`）：距离 > 半径、已知价格档位 > 上限、命中任一方禁忌标签、`is_closed`、新鲜度开启时 ∈ visited_A ∪ visited_B、∈ R、∈ dismissed。每个被排除候选记录原因（用于 no_match 说明）。
-6. **补充评估（score）**：两人模式下，对每个 p 调一次 insights，`filter.results.entities = U'`（过滤后的候选，按 25 个分块），得到 p 对 U' 每个候选的 affinity —— **同一 p 的所有分数来自同一查询，可在 p 内部比较**。
-7. **名次效用**：对每个 p，把 U' 按该 p 的 affinity 降序，`u_p = 1 - rank/(n-1)`（n=1 时 u=1）。某候选某人无分数 → 不虚构，移出共同排序，记入 `evidence.missing_scores`。
-8. **排序**：主键 `min(uA,uB)` 降序；次键 `(uA+uB)/2`；再按直线距离升序；最后 entity_id 保证确定性。单人模式 `u = uA`。
-9. **有界扩展**：合格候选 < 需要数（三选=3、拍板=1）时，发现阶段 take=60 且半径 ×1.5 **仅在用户已允许扩大范围时**；否则只做一次 take=60 不改约束的重试。
-10. **决策模式**：`three` → 至多 3 家，不足如实返回；`pick` → 1 家首选 + 保留 `try_another`。
-11. **状态**：`success | needs_clarification | no_match | provider_unavailable`；`no_match` 附 `relaxation_options`（`expand_radius | raise_price | allow_revisits`），只能由用户显式选择后生效。
-12. **解释**：结构化 evidence →（可选 LLM）英文理由 → `validate.ts` 校验：理由里出现的餐厅名必须 ∈ 结果集，不得出现分钟数/美元金额等未提供事实，否则回落模板。
+1. **Constraint validation**: missing center point/radius → `needs_clarification`. If the user wrote an exact per-person amount (e.g., "$30 per person") → keep the original text as `budget_note`, filter only by price level, and add it to `conditions_to_confirm`.
+2. **Authorized view**: each participant exports only `{positive_entity_ids, excluded_tags, price_preference, visited_place_ids, has_unresolved}`, never the full history.
+3. **Discover**: for each p, call insights once (p's own positive entities, location, restaurant tag, price cap, take=30).
+4. **Merge**: the candidate union U, deduplicated by entity_id.
+5. **Hard filter** (`domain/filters.ts`): distance > radius, known price level > cap, matches either person's restricted tags, `is_closed`, ∈ visited_A ∪ visited_B when novelty is on, ∈ R, ∈ dismissed. Record the reason for every excluded candidate (used to explain no_match).
+6. **Supplementary evaluation (score)**: in two-person mode, call insights once per p with `filter.results.entities = U'` (the filtered candidates, in chunks of 25) to get p's affinity for each candidate in U' — **all of a given p's scores come from the same query, so they are comparable within p**.
+7. **Rank utility**: for each p, sort U' by that p's affinity in descending order, `u_p = 1 - rank/(n-1)` (u=1 when n=1). If a candidate has no score for someone → do not invent one; remove it from the shared ranking and record it in `evidence.missing_scores`.
+8. **Ranking**: primary key `min(uA,uB)` descending; secondary key `(uA+uB)/2`; then straight-line distance ascending; finally entity_id for determinism. In solo mode, `u = uA`.
+9. **Bounded expansion**: when there are fewer qualifying candidates than needed (three=3, pick=1), the discover stage uses take=60 and radius ×1.5 **only if the user has allowed expanding the area**; otherwise do a single take=60 retry without changing the constraints.
+10. **Decision mode**: `three` → at most 3 places, honestly returning fewer if short; `pick` → 1 top pick + keep `try_another`.
+11. **Status**: `success | needs_clarification | no_match | provider_unavailable`; `no_match` comes with `relaxation_options` (`expand_radius | raise_price | allow_revisits`), which take effect only after the user explicitly chooses one.
+12. **Explanation**: structured evidence → (optional LLM) English reasons → checked by `validate.ts`: every restaurant name that appears in the reasons must be ∈ the result set, and no unprovided facts such as minute counts or dollar amounts may appear; otherwise fall back to templates.
 
-`RecommendationRun` 记录 `profile_versions`、`constraint_version`、provider 请求摘要（脱敏）、候选、证据、结果。会话约束或任一方档案版本变化 → 旧 run `stale=true`。
-
----
-
-## 4 数据模型（SQL 迁移 001，主控）
-
-`users(id, created_at)` · `profiles(id, owner_id UNIQUE, display_name, center_lat, center_lon, radius_m, price_max, excluded_tags JSON, positive_entities JSON, is_demo, version, updated_at)` · `memories(id, profile_id, place_id NULL, unresolved_name NULL, name, address, status CHECK in visited/want_to_try/dismissed, visit_date NULL, visit_count NULL, rating NULL CHECK in liked/neutral/disliked, revisit_intent NULL, source, created_at, updated_at)` · `match_sessions(id, owner_id, invite_token_hash, participant_a, participant_b NULL, consent_b, constraints JSON, decision_mode, novelty_both_unvisited, state, version, expires_at, revoked)` · `recommendation_runs(id, session_id NULL, owner_id, idempotency_key UNIQUE, profile_versions JSON, constraint_version, provider_refs JSON, candidate_ids JSON, evidence JSON, result JSON, status, stale, created_at)` · `feedback(id, run_id, profile_id, place_id, kind CHECK in selected/dismissed/visited, rating, revisit_intent, reason, created_at)`。
-
-规则：访问者只能读写 `profiles.owner_id = me` 的档案与其 memories；房间只有 A/B 两位参与者可读；`dismissed`（本次否决）写入 run 的排除集，不写 memories；只有 `POST /api/feedback kind=visited` 会创建 `visited` 记忆，且只写调用者自己的档案。
+`RecommendationRun` records `profile_versions`, `constraint_version`, a redacted summary of provider requests, candidates, evidence, and results. When the session constraints or either person's profile version change → the old run is marked `stale=true`.
 
 ---
 
-## 5 任务拆分与归属
+## 4 Data model (SQL migration 001, lead)
 
-图例：🟣 主控（Claude）亲自完成 · 🟢 GPT‑6.1 Terra high 派发 · 🔍 主控审查
+`users(id, created_at)` · `profiles(id, owner_id UNIQUE, display_name, center_lat, center_lon, radius_m, price_max, excluded_tags JSON, positive_entities JSON, is_demo, version, updated_at)` · `memories(id, profile_id, place_id NULL, unresolved_name NULL, name, address, status CHECK in visited/want_to_try/dismissed, visit_date NULL, visit_count NULL, rating NULL CHECK in liked/neutral/disliked, revisit_intent NULL, source, created_at, updated_at)` · `match_sessions(id, owner_id, invite_token_hash, participant_a, participant_b NULL, consent_b, constraints JSON, decision_mode, novelty_both_unvisited, state, version, expires_at, revoked)` · `recommendation_runs(id, session_id NULL, owner_id, idempotency_key UNIQUE, profile_versions JSON, constraint_version, provider_refs JSON, candidate_ids JSON, evidence JSON, result JSON, status, stale, created_at)` · `feedback(id, run_id, profile_id, place_id, kind CHECK in selected/dismissed/visited, rating, revisit_intent, reason, created_at)`.
 
-### Wave 0 — 骨架（🟣，串行，其他一切的前提）
-- W0.1 Next.js + TS + Tailwind + vitest + zod + libsql 脚手架、`tsconfig` 路径别名、`npm scripts`。
-- W0.2 `src/domain/types.ts`、`src/lib/api-types.ts`：全部共享类型（契约冻结点）。
-- W0.3 `src/copy/en.ts` 文案键骨架。
+Rules: a visitor can only read and write the profile where `profiles.owner_id = me` and that profile's memories; a room is readable only by its two participants, A and B; `dismissed` (rejected in this session) is written to the run's exclusion set, not to memories; only `POST /api/feedback kind=visited` creates a `visited` memory, and it writes only to the caller's own profile.
 
-### Wave 1 — 核心（🟣）
-- W1.1 `domain/filters.ts` `ranking.ts` `decision.ts` `hours.ts` `validate.ts` + 关键测试。
-- W1.2 `server/qloo/*`：client（超时 8s、1 次重试、进程内调用预算）、zod 映射、search/discover/score。
-- W1.3 `server/db/*`：迁移、client、带所有权校验的 repos。
-- W1.4 `server/auth/session.ts`、`server/http.ts`。
-- W1.5 `server/services/recommend.ts`（§3 全流程）、`sessions.ts`（邀请 token 只存 hash、过期、撤销、版本递增使旧 run 过期）、`feedback.ts`。
-- W1.6 敏感路由：`/api/sessions/**`、`/api/recommendations`、`/api/feedback`、`/api/demo`，以及一条 CRUD 示范路由 `GET/PUT /api/profile`（调用者自己的档案；GPT 照此写其余路由）。
-- W1.7 浏览器端 `src/lib/api-client.ts` 与 `src/components/ui` 基础组件（两个 UI 任务共用，避免重复实现）。
+---
 
-### Wave 2 — 派发（🟢，可并行，文件所有权互不重叠）
-| ID | 任务 | 只能修改的文件 | 完成定义 |
+## 5 Task breakdown and ownership
+
+Legend: 🟣 done by the lead (Claude) personally · 🟢 dispatched to GPT‑6.1 Terra high · 🔍 reviewed by the lead
+
+### Wave 0 — Skeleton (🟣, serial, prerequisite for everything else)
+- W0.1 Next.js + TS + Tailwind + vitest + zod + libsql scaffold, `tsconfig` path aliases, `npm scripts`.
+- W0.2 `src/domain/types.ts`, `src/lib/api-types.ts`: all shared types (the contract freeze point).
+- W0.3 `src/copy/en.ts` copy-key skeleton.
+
+### Wave 1 — Core (🟣)
+- W1.1 `domain/filters.ts` `ranking.ts` `decision.ts` `hours.ts` `validate.ts` + key tests.
+- W1.2 `server/qloo/*`: client (8 s timeout, 1 retry, in-process call budget), zod mapping, search/discover/score.
+- W1.3 `server/db/*`: migrations, client, repos with ownership checks.
+- W1.4 `server/auth/session.ts`, `server/http.ts`.
+- W1.5 `server/services/recommend.ts` (the full §3 flow), `sessions.ts` (stores only the invite token's hash; expiry; revocation; version bumps that mark old runs stale), `feedback.ts`.
+- W1.6 Sensitive routes: `/api/sessions/**`, `/api/recommendations`, `/api/feedback`, `/api/demo`, plus one example CRUD route, `GET/PUT /api/profile` (the caller's own profile; GPT writes the remaining routes following this pattern).
+- W1.7 Browser-side `src/lib/api-client.ts` and `src/components/ui` base components (shared by both UI tasks to avoid duplicate implementations).
+
+### Wave 2 — Dispatch (🟢, parallelizable, non-overlapping file ownership)
+| ID | Task | Files it may modify | Definition of done |
 | --- | --- | --- | --- |
-| T1 | memories / places 搜索 CRUD 路由（照 `/api/profile` 模式） | `src/app/api/memories/**`、`src/app/api/places/**` | 调用现有 service/repo；不得新增 SQL；`npm run typecheck` 通过 |
-| T2 | Qloo 测试 fixtures + 适配器/排序的 mock 测试（不足三家、零候选、超时、price null、hours 缺失、unresolved） | `src/server/qloo/fixtures/**`、`tests/**` | `npm test` 全绿；fixtures 只用于测试 |
-| T4 | UI：首页（含示例体验入口）、AppHeader、My Taste（偏好 + 历史列表 + 搜索添加 + 编辑删除 + unresolved 提示） | `src/app/page.tsx`、`src/app/taste/**`、`src/components/taste/**`、`src/components/AppHeader.tsx`、`src/copy/home.ts`、`src/copy/taste.ts` | 只用 `api-types.ts` 与 `copy/en.ts`；无中文；移动端可用 |
-| T5 | UI：单人搜索、约饭房间、邀请加入页、结果卡片、换一家、反馈 | `src/app/solo/**`、`src/app/room/**`、`src/app/join/**`、`src/components/room/**`、`src/copy/room.ts` | 按 status 渲染四种状态；三选/拍板；不展示对方历史 |
-| T6 | 示例档案数据（两位标注 "Sample" 的虚构人物，只用主控给出的真实 Qloo entity ID；原 T3 并入）+ README（英文）、LICENSE（MIT）、`.env.example`、手动测试步骤 | `src/server/services/demo-data.ts`（仅 `DEMO_PEOPLE`）、`README.md`、`LICENSE`、`.env.example`、`docs/TESTING.md` | 只含虚构人物；从干净环境可运行 |
+| T1 | memories / places search CRUD routes (following the `/api/profile` pattern) | `src/app/api/memories/**`, `src/app/api/places/**` | Calls existing services/repos; no new SQL; `npm run typecheck` passes |
+| T2 | Qloo test fixtures + mock tests for the adapter/ranking (fewer than three results, zero candidates, timeout, null price, missing hours, unresolved) | `src/server/qloo/fixtures/**`, `tests/**` | `npm test` all green; fixtures are used only for tests |
+| T4 | UI: home page (including the sample-experience entry), AppHeader, My Taste (preferences + history list + search to add + edit/delete + unresolved hints) | `src/app/page.tsx`, `src/app/taste/**`, `src/components/taste/**`, `src/components/AppHeader.tsx`, `src/copy/home.ts`, `src/copy/taste.ts` | Uses only `api-types.ts` and `copy/en.ts`; no Chinese; usable on mobile |
+| T5 | UI: solo search, meal room, invite/join page, result cards, try another, feedback | `src/app/solo/**`, `src/app/room/**`, `src/app/join/**`, `src/components/room/**`, `src/copy/room.ts` | Renders all four statuses by `status`; three options/pick; never shows the other person's history |
+| T6 | Sample profile data (two fictional people labeled "Sample", using only real Qloo entity IDs provided by the lead; the former T3 is merged in) + README (English), LICENSE (MIT), `.env.example`, manual test steps | `src/server/services/demo-data.ts` (only `DEMO_PEOPLE`), `README.md`, `LICENSE`, `.env.example`, `docs/TESTING.md` | Fictional people only; runnable from a clean environment |
 
-派发规则（写进每个 prompt）：
-1. 只改所有权列表内的文件；需要改契约时停下并在最终消息里说明，而不是修改 `src/domain`、`src/server`、`src/lib/api-types.ts`。
-2. 不安装依赖、不运行 git 写操作、不访问网络（真实 Qloo 由主控测）。
-3. 所有用户可见文本为英文，放入本任务专属的文案文件（`src/copy/home.ts`、`taste.ts`、`room.ts`，由 `src/copy/en.ts` 统一导出），不改核心文案。
-4. 结束前运行 `npm run typecheck` 与 `npm test`，在最终消息中报告结果和改动文件列表。
-5. 命令：`cat logs/prompts/_common.md logs/prompts/<T>.md | codex exec -m gpt-6.1-terra -c model_reasoning_effort=high -s workspace-write --ephemeral -C <repo> -o logs/<T>.final.md -`。提示词与日志在被 gitignore 的 `logs/`；五个任务文件互不重叠，因此在同一工作树并行运行。
+Dispatch rules (written into every prompt):
+1. Modify only the files in your ownership list; if a contract change is needed, stop and explain it in your final message instead of modifying `src/domain`, `src/server`, or `src/lib/api-types.ts`.
+2. Do not install dependencies, run git write operations, or access the network (the lead tests against real Qloo).
+3. All user-visible text is in English and goes into the task's own copy file (`src/copy/home.ts`, `taste.ts`, `room.ts`, re-exported from `src/copy/en.ts`); do not change the core copy.
+4. Before finishing, run `npm run typecheck` and `npm test`, and report the results and the list of changed files in your final message.
+5. Command: `cat logs/prompts/_common.md logs/prompts/<T>.md | codex exec -m gpt-6.1-terra -c model_reasoning_effort=high -s workspace-write --ephemeral -C <repo> -o logs/<T>.final.md -`. Prompts and logs live in the gitignored `logs/`; the five tasks' files do not overlap, so they run in parallel in the same working tree.
 
-### Wave 3 — 集成与验证（🟣 + 🔍）
-- 逐个审查 Wave 2 diff（契约、所有权、权限、英文文案、无编造事实）。
-- 全量 `typecheck`、`test`、`build`；真实 Qloo 冒烟（`scripts/qloo-smoke.ts`）：A、B、A+B 三种档案对照。
-- 双浏览器端到端：创建房间 → 加入 → 改 B 约束使旧 run 过期 → 生成 → 换一家 → 确认到访。
-- 中文浏览器环境下检查无中文残留（`grep -P '[\x{4e00}-\x{9fff}]' src/` 应只命中注释为零）。
-- 对抗式审查：权限越权、密钥泄漏、状态误渲染为成功。
+### Wave 3 — Integration and verification (🟣 + 🔍)
+- Review each Wave 2 diff one by one (contracts, ownership, permissions, English copy, no fabricated facts).
+- Full `typecheck`, `test`, and `build`; real Qloo smoke test (`scripts/qloo-smoke.ts`): compare the A, B, and A+B profiles.
+- Two-browser end-to-end: create room → join → change B's constraints so the old run goes stale → generate → try another → confirm visit.
+- Check for leftover Chinese under a Chinese browser locale (`grep -P '[\x{4e00}-\x{9fff}]' src/` should return zero hits outside comments).
+- Adversarial review: privilege escalation, secret leaks, statuses misrendered as success.
 
-### Wave 4 — 部署与提交（需 Victor 授权）
-Turso 数据库 + Vercel 环境变量（`QLOO_API_KEY`、`QLOO_API_URL`、`DATABASE_URL`、`DATABASE_AUTH_TOKEN`、`SESSION_SECRET`、可选 `ANTHROPIC_API_KEY`）→ 部署 → 无痕窗口验收 → 公开仓库 → Devpost。部署平台账号操作、公开仓库、Devpost 提交前需 Victor 确认。
-
----
-
-## 6 风险与停止条件
-
-| 风险 | 缓解 |
-| --- | --- |
-| 双方候选交集小 | §3.6 补充评估；仍不足则 `no_match` + 放宽选项，不凑数 |
-| `filter.location.query` 误解析 | 只用 POINT + radius |
-| 公开 demo 耗尽配额 | 每进程/每用户调用预算、每 run ≤ 6 次 Qloo 调用、幂等键 |
-| GPT 改动越界 | 文件所有权 + 主控 diff 审查；越界改动直接回退 |
-| 无 LLM key | 模板解释为默认路径，LLM 为增强 |
-| 营业时间无时区 | 固定按 America/Los_Angeles 解释并标注 |
-
-PRD §12 的停止条件不变：不能砍真实 Qloo、双人条件、历史排除和公开可用性来宣称完成。
+### Wave 4 — Deployment and submission (requires Victor's authorization)
+Turso database + Vercel environment variables (`QLOO_API_KEY`, `QLOO_API_URL`, `DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `SESSION_SECRET`, optional `ANTHROPIC_API_KEY`) → deploy → incognito-window acceptance → public repository → Devpost. Deployment-platform account actions, making the repository public, and the Devpost submission all require Victor's confirmation first.
 
 ---
 
-## 7 执行记录（2026-10-30）
+## 6 Risks and stop conditions
 
-| 阶段 | 结果 |
+| Risk | Mitigation |
 | --- | --- |
-| Wave 0–1（主控） | 契约、领域纯函数、Qloo 适配器、仓储、协调器、敏感路由完成；真实 Qloo 冒烟：A、B、A+B 三组结果互不相同，历史并集与禁忌过滤生效 |
-| Wave 2（GPT‑6.1 Terra high ×5） | T1/T2/T4/T5/T6 全部完成且未越界；T2 测出主控代码的真实缺陷（协调器未自行校验 LLM 理由）并已修复 |
-| Wave 3 集成 | 真实数据又暴露两处字段差异：insights 的 `external.*` 为数组、`/search` 的标签键为 `tag_id`（导致搜索全部丢弃）；均已兼容并加回归测试 |
-| 对抗式审查 | 4 个视角 + 各 1 名反驳者：确认 22 项、驳回 5 项。服务端/领域 13 项由主控修复；UI 9 项派发 T7（GPT）修复 |
-| 验证 | `typecheck`、22 个单测、`next build` 通过；三用户 HTTP 端到端 28 项检查通过（越权、邀请 token、确认门槛、历史并集、最严价格、幂等、反馈隔离、过期标记）；浏览器内示例体验、单人搜索、换一家、拍板、到访反馈均实测 |
+| The two people's candidates barely intersect | §3.6 supplementary evaluation; if still insufficient, `no_match` + relaxation options, no padding |
+| `filter.location.query` misparses the location | Use only POINT + radius |
+| The public demo exhausts the quota | Per-process/per-user call budget, ≤ 6 Qloo calls per run, idempotency keys |
+| GPT changes go out of bounds | File ownership + lead diff review; out-of-bounds changes are reverted immediately |
+| No LLM key | Template explanations are the default path; the LLM is an enhancement |
+| Opening hours have no time zone | Always interpret them as America/Los_Angeles and label them as such |
 
-**Wave 4 未开始**：部署（Turso + Vercel 环境变量）、公开仓库、Devpost 提交，需要 Victor 授权与账号操作。
+The stop conditions in PRD §12 are unchanged: real Qloo, two-person conditions, history exclusion, and public availability cannot be cut in order to claim completion.
+
+---
+
+## 7 Execution log (2026-10-30)
+
+| Phase | Result |
+| --- | --- |
+| Wave 0–1 (lead) | Contracts, pure domain functions, Qloo adapter, repositories, coordinator, and sensitive routes done; real Qloo smoke test: the A, B, and A+B result sets all differ, and history-union and restriction filtering take effect |
+| Wave 2 (GPT‑6.1 Terra high ×5) | T1/T2/T4/T5/T6 all completed without going out of bounds; T2 caught a real defect in the lead's code (the coordinator did not itself validate LLM reasons), which has been fixed |
+| Wave 3 integration | Real data exposed two more field differences: insights' `external.*` fields are arrays, and the tag key in `/search` is `tag_id` (which caused every search result to be dropped); both are now handled, with regression tests added |
+| Adversarial review | 4 perspectives, each with 1 rebutter: 22 findings confirmed, 5 rejected. The lead fixed the 13 server/domain findings; the 9 UI findings were dispatched to T7 (GPT) for fixing |
+| Verification | `typecheck`, 22 unit tests, and `next build` pass; 28 three-user HTTP end-to-end checks pass (privilege escalation, invite token, confirmation gate, history union, strictest price cap, idempotency, feedback isolation, stale marking); the sample experience, solo search, try another, pick, and visit feedback were all tested hands-on in the browser |
+
+**Wave 4 not started**: deployment (Turso + Vercel environment variables), the public repository, and the Devpost submission require Victor's authorization and account actions.
