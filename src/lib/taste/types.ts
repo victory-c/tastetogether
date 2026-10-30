@@ -134,6 +134,13 @@ export type MatchEvent =
       when: string;
     }
   | {
+      /** LLM-written copy for picks already sent in 'result'; arrives after it. */
+      type: 'narration';
+      headline?: string;
+      whys: { id: string; why: string }[];
+      llm: string;
+    }
+  | {
       type: 'error';
       status: 'no_match' | 'provider_unavailable' | 'needs_clarification';
       message: string;

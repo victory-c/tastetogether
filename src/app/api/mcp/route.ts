@@ -85,6 +85,10 @@ const handler = createMcpHandler(
           if (e.type === 'step' && e.status === 'done') trace.push(`${e.label}${e.detail ? ` — ${e.detail}` : ''}`);
           if (e.type === 'dna') dna = e.dna;
           if (e.type === 'result') picks = e.picks;
+          if (e.type === 'narration') {
+            const whys = new Map(e.whys.map((w) => [w.id, w.why]));
+            picks = picks.map((p) => ({ ...p, why: whys.get(p.id) ?? p.why }));
+          }
           if (e.type === 'error') failure = e.message;
         }
         if (failure || picks.length === 0) {

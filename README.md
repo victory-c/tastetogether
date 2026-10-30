@@ -41,7 +41,7 @@ The input is cultural taste, not cuisine preferences. Knowing that a *Pride & Pr
 | Place properties: `primary_genre`, `hours`, `price_level`, `business_rating`, `specialty_dishes`, `good_for`, tags, `image`, `location` | Meal vs. café filtering, open-at-plan-time status, card facts, noise, photos, walk time | [`taste/occasions.ts`](src/lib/taste/occasions.ts), [`taste/hours.ts`](src/lib/taste/hours.ts) |
 | `GET /entities` | Thumbnails for sample duos and shared links | [`api/entities/route.ts`](src/app/api/entities/route.ts) |
 
-A full match makes about 6 live Qloo calls and usually finishes in 1–3 seconds. Responses are cached privately in server memory only. **No Qloo response data is stored in this repository** (test fixtures are synthetic).
+A full match makes about 6 live Qloo calls. Picks usually appear in about a second, or in about 4–6 seconds when a free-text vibe goes through the LLM tag agent (instant if the same vibe ran in the last 30 minutes); LLM-written explanations stream in a few seconds after the picks. Responses are cached privately in server memory only. **No Qloo response data is stored in this repository** (test fixtures are synthetic).
 
 Lessons from probing the live API that shaped the design:
 
@@ -62,9 +62,9 @@ free-text vibe ─ LLM tool loop over /v2/tags ─ boost / avoid tags           
 ```
 
 - **Personal agents + coordinator.** Each person's taste is scouted and scored separately (the “personal agents”); the coordinator merges a shared pool, negotiates the fair pick and explains it. The UI shows how each taste ranked the finalists.
-- **Tool use.** A `ToolLoopAgent` (Vercel AI SDK) searches Qloo's tag taxonomy and may only choose tags the tool returned.
+- **Tool use.** A `ToolLoopAgent` (Vercel AI SDK) searches Qloo's tag taxonomy (all searches in one parallel step) and may only choose tags the tool returned. Restaurant scouting starts while it thinks, so the agent costs one model round trip, not the whole pipeline.
 - **Autonomous recovery.** If too few places match, the agent widens the search radius once and says so; if nothing matches, it returns `no_match` with ways to relax the plan instead of inventing a restaurant.
-- **Grounded copy.** The LLM writes the "why you'll both love it" lines from a JSON of verified facts, treated as untrusted data, and is told never to add dishes, hours, prices or waits. Without an LLM key, deterministic templates are used and the trace says so.
+- **Grounded copy.** The LLM writes the "why you'll both love it" lines from a JSON of verified facts, treated as untrusted data, and is told never to add dishes, hours, prices or waits, and to credit a specific favorite only when Qloo's explainability names it. The picks arrive first with fact templates; the LLM lines stream in afterwards as their own events (on-screen picks first), so the model never delays the result. Without an LLM key, the templates stay and the trace says so.
 - **MCP.** `/api/mcp` exposes `find_table_for_two` and `taste_overlap` (Streamable HTTP). Example client config: `{"tastetogether": {"url": "https://tastetogether.vercel.app/api/mcp"}}`.
 
 ### Fair ranking (no black box)
@@ -104,7 +104,7 @@ bash scripts/setup-qloo.sh   # stores QLOO_API_KEY and QLOO_API_URL in .env.loca
 npm run dev                  # http://localhost:3000
 ```
 
-The local database is created at `data/local.db` on first use. Optional: add `ANTHROPIC_API_KEY` to `.env.local` to enable the vibe-translation agent and LLM-written explanations; everything else works without it. The app never uses platform AI credits implicitly.
+The local database is created at `data/local.db` on first use. Optional: run `bash scripts/setup-anthropic.sh` to enable the vibe-translation agent and LLM-written explanations with your own Anthropic key (it checks the key, saves it to `.env.local` and can add it to Vercel production); everything else works without it. The app never uses platform AI credits implicitly.
 
 | Variable | Purpose |
 | --- | --- |

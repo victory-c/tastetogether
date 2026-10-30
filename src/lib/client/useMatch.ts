@@ -64,6 +64,15 @@ export function useMatch() {
           return { ...s, negotiation: e.rows };
         case 'result':
           return { ...s, phase: 'done', picks: e.picks, headline: e.headline, relaxed: e.relaxed, stats: e.stats, when: e.when };
+        case 'narration': {
+          const whys = new Map(e.whys.map((w) => [w.id, w.why]));
+          return {
+            ...s,
+            headline: e.headline ?? s.headline,
+            picks: s.picks.map((p) => (whys.has(p.id) ? { ...p, why: whys.get(p.id) } : p)),
+            stats: s.stats && { ...s.stats, llm: e.llm },
+          };
+        }
         case 'error':
           return { ...s, phase: 'error', error: { status: e.status, message: e.message } };
       }
