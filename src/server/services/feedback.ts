@@ -34,11 +34,24 @@ export async function recordFeedback(userId: string, input: FeedbackInput): Prom
   const card = run.result.cards.find((c) => c.placeId === input.placeId);
   if (!card) throw new AppError('invalid_input');
 
-  await insertFeedback({ runId: run.id, profileId, placeId: input.placeId, kind: input.kind, rating: input.rating, revisitIntent: input.revisitIntent });
+  await insertFeedback({
+    runId: run.id,
+    profileId,
+    placeId: input.placeId,
+    kind: input.kind,
+    rating: input.rating,
+    revisitIntent: input.revisitIntent,
+  });
   if (input.kind !== 'visited') return;
 
   const existing = await findMemoryByPlace(profileId, input.placeId);
-  const fields = { status: 'visited' as const, rating: input.rating ?? null, revisitIntent: input.revisitIntent ?? null, visitDate: new Date().toISOString().slice(0, 10) };
+  const fields = {
+    status: 'visited' as const,
+    rating: input.rating ?? null,
+    revisitIntent: input.revisitIntent ?? null,
+    visitDate: new Date().toISOString().slice(0, 10),
+  };
   if (existing) await updateMemory(profileId, existing.id, { ...fields, visitCount: (existing.visitCount ?? 0) + 1 });
-  else await createMemory(profileId, { placeId: card.placeId, name: card.name, address: card.address, visitCount: 1, ...fields }, 'feedback');
+  else
+    await createMemory(profileId, { placeId: card.placeId, name: card.name, address: card.address, visitCount: 1, ...fields }, 'feedback');
 }

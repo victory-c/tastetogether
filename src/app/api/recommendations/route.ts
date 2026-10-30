@@ -10,7 +10,7 @@ export const POST = withUser(async (req, userId) => {
   const body = await parseBody(req, recommendSchema);
   if (body.sessionId) return ok<RecommendResponse>({ result: await recommendForSession(userId, body.sessionId, body.idempotencyKey) });
   if (!body.constraints) throw new AppError('invalid_input');
-  return ok<RecommendResponse>({ result: await recommendSolo(userId, body.idempotencyKey, body.constraints) });
+  return ok<RecommendResponse>({ result: await recommendSolo(userId, body.idempotencyKey, body.constraints, body.rejectedPlaceIds ?? []) });
 });
 
 /** Latest solo result for this browser, with staleness recomputed. */

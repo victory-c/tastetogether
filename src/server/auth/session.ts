@@ -44,7 +44,13 @@ export async function requireUserId(): Promise<string> {
   const uid = crypto.randomUUID();
   await ensureUser(uid);
   const jar = await cookies();
-  jar.set(COOKIE, `${uid}.${sign(uid)}`, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: MAX_AGE_S });
+  jar.set(COOKIE, `${uid}.${sign(uid)}`, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: MAX_AGE_S,
+  });
   return uid;
 }
 

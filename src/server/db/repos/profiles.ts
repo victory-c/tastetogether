@@ -56,7 +56,20 @@ export async function createProfile(ownerId: string, input: ProfileInput, isDemo
   await run(
     `INSERT INTO profiles (id, owner_id, display_name, area_label, center_lat, center_lon, radius_m, price_max, excluded_cuisines, positive_entities, is_demo, version, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-    [id, ownerId, input.displayName, input.area.label, input.area.lat, input.area.lon, Math.round(input.area.radiusM), input.priceMax, JSON.stringify(input.excludedCuisines), JSON.stringify(input.positiveEntities), isDemo ? 1 : 0, now()],
+    [
+      id,
+      ownerId,
+      input.displayName,
+      input.area.label,
+      input.area.lat,
+      input.area.lon,
+      Math.round(input.area.radiusM),
+      input.priceMax,
+      JSON.stringify(input.excludedCuisines),
+      JSON.stringify(input.positiveEntities),
+      isDemo ? 1 : 0,
+      now(),
+    ],
   );
   return (await getProfileById(id))!;
 }
@@ -66,7 +79,18 @@ export async function updateProfile(ownerId: string, input: ProfileInput): Promi
   const changed = await run(
     `UPDATE profiles SET display_name = ?, area_label = ?, center_lat = ?, center_lon = ?, radius_m = ?, price_max = ?, excluded_cuisines = ?, positive_entities = ?, version = version + 1, updated_at = ?
      WHERE owner_id = ?`,
-    [input.displayName, input.area.label, input.area.lat, input.area.lon, Math.round(input.area.radiusM), input.priceMax, JSON.stringify(input.excludedCuisines), JSON.stringify(input.positiveEntities), now(), ownerId],
+    [
+      input.displayName,
+      input.area.label,
+      input.area.lat,
+      input.area.lon,
+      Math.round(input.area.radiusM),
+      input.priceMax,
+      JSON.stringify(input.excludedCuisines),
+      JSON.stringify(input.positiveEntities),
+      now(),
+      ownerId,
+    ],
   );
   return changed ? getProfileByOwner(ownerId) : null;
 }

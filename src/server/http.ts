@@ -33,7 +33,10 @@ export function ok<T>(body: T, status = 200): NextResponse<T> {
 }
 
 export function fail(code: ApiErrorCode, message?: string): NextResponse<ApiError> {
-  return NextResponse.json({ error: { code, message: message ?? copy.errors[code] } }, { status: STATUS[code], headers: { 'Cache-Control': 'no-store' } });
+  return NextResponse.json(
+    { error: { code, message: message ?? copy.errors[code] } },
+    { status: STATUS[code], headers: { 'Cache-Control': 'no-store' } },
+  );
 }
 
 export async function parseBody<T>(req: Request, schema: ZodType<T>): Promise<T> {

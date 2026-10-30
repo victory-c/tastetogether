@@ -8,7 +8,10 @@ export function wantedCount(mode: DecisionMode): number {
  * Apply the decision mode. Never pads: if fewer qualify than wanted, return what we have.
  * With requireOpen, venues with unverified hours are held back so we never claim all conditions are met.
  */
-export function selectForMode(ranked: ScoredCandidate[], constraints: Constraints): { selected: ScoredCandidate[]; heldForUnverifiedHours: number } {
+export function selectForMode(
+  ranked: ScoredCandidate[],
+  constraints: Constraints,
+): { selected: ScoredCandidate[]; heldForUnverifiedHours: number } {
   const want = wantedCount(constraints.decisionMode);
   let pool = ranked;
   let held = 0;

@@ -1,0 +1,43 @@
+import type { Candidate, Constraints, ParticipantView } from '@/domain/types';
+
+export const candidate = (placeId: string, patch: Partial<Candidate> = {}): Candidate => ({
+  placeId,
+  name: `Place ${placeId}`,
+  address: null,
+  location: null,
+  priceLevel: null,
+  tagIds: [],
+  tagNames: [],
+  hours: null,
+  isClosed: null,
+  website: null,
+  externalUrl: null,
+  description: null,
+  ...patch,
+});
+export const constraints = (patch: Partial<Constraints> = {}): Constraints => ({
+  area: { center: { lat: 37, lon: -122 }, radiusM: 1000, label: 'Area' },
+  priceMax: null,
+  budgetNote: null,
+  timeWindow: null,
+  requireOpen: false,
+  occasion: null,
+  decisionMode: 'three',
+  excludeVisited: true,
+  relaxations: [],
+  ...patch,
+});
+export const participant = (key: 'A' | 'B', patch: Partial<ParticipantView> = {}): ParticipantView => ({
+  key,
+  profileId: key,
+  profileVersion: 1,
+  displayName: key,
+  positiveEntityIds: [key],
+  positiveEntityNames: [],
+  excludedCuisines: [],
+  priceMax: null,
+  visitedPlaceIds: [],
+  dismissedPlaceIds: [],
+  hasUnresolvedHistory: false,
+  ...patch,
+});

@@ -128,24 +128,24 @@ scripts/ setup-qloo.sh, seed-demo.ts, qloo-smoke.ts
 - W1.3 `server/db/*`：迁移、client、带所有权校验的 repos。
 - W1.4 `server/auth/session.ts`、`server/http.ts`。
 - W1.5 `server/services/recommend.ts`（§3 全流程）、`sessions.ts`（邀请 token 只存 hash、过期、撤销、版本递增使旧 run 过期）、`feedback.ts`。
-- W1.6 敏感路由：`/api/sessions/**`、`/api/recommendations`、`/api/feedback`，以及一条 CRUD 示范路由 `/api/profiles`（GPT 照此写其余路由）。
+- W1.6 敏感路由：`/api/sessions/**`、`/api/recommendations`、`/api/feedback`、`/api/demo`，以及一条 CRUD 示范路由 `GET/PUT /api/profile`（调用者自己的档案；GPT 照此写其余路由）。
+- W1.7 浏览器端 `src/lib/api-client.ts` 与 `src/components/ui` 基础组件（两个 UI 任务共用，避免重复实现）。
 
 ### Wave 2 — 派发（🟢，可并行，文件所有权互不重叠）
 | ID | 任务 | 只能修改的文件 | 完成定义 |
 | --- | --- | --- | --- |
-| T1 | memories / places 搜索 CRUD 路由（照 `/api/profiles` 模式） | `src/app/api/memories/**`、`src/app/api/places/**` | 调用现有 service/repo；不得新增 SQL；`npm run typecheck` 通过 |
+| T1 | memories / places 搜索 CRUD 路由（照 `/api/profile` 模式） | `src/app/api/memories/**`、`src/app/api/places/**` | 调用现有 service/repo；不得新增 SQL；`npm run typecheck` 通过 |
 | T2 | Qloo 测试 fixtures + 适配器/排序的 mock 测试（不足三家、零候选、超时、price null、hours 缺失、unresolved） | `src/server/qloo/fixtures/**`、`tests/**` | `npm test` 全绿；fixtures 只用于测试 |
-| T3 | 示例档案 seed 数据（两个明确标注 "Sample" 的虚构人物，真实 Berkeley entity ID 由主控给出）+ `/api/demo` 调用方 UI 按钮 | `src/server/services/demo-data.ts` | 只含虚构资料、全英文 |
-| T4 | UI：首页、My Taste（偏好 + 历史列表 + 搜索添加 + 编辑删除 + unresolved 提示） | `src/app/page.tsx`、`src/app/taste/**`、`src/components/taste/**` | 只用 `api-types.ts` 与 `copy/en.ts`；无中文；移动端可用 |
-| T5 | UI：约饭房间、邀请加入页、结果卡片、换一家、反馈 | `src/app/room/**`、`src/app/join/**`、`src/components/room/**` | 按 status 渲染四种状态；三选/拍板；不展示对方历史 |
-| T6 | README（英文）、LICENSE（MIT）、`.env.example` 补全、手动双浏览器测试步骤 | `README.md`、`LICENSE`、`.env.example`、`docs/TESTING.md` | 从干净环境可运行 |
+| T4 | UI：首页（含示例体验入口）、AppHeader、My Taste（偏好 + 历史列表 + 搜索添加 + 编辑删除 + unresolved 提示） | `src/app/page.tsx`、`src/app/taste/**`、`src/components/taste/**`、`src/components/AppHeader.tsx`、`src/copy/home.ts`、`src/copy/taste.ts` | 只用 `api-types.ts` 与 `copy/en.ts`；无中文；移动端可用 |
+| T5 | UI：单人搜索、约饭房间、邀请加入页、结果卡片、换一家、反馈 | `src/app/solo/**`、`src/app/room/**`、`src/app/join/**`、`src/components/room/**`、`src/copy/room.ts` | 按 status 渲染四种状态；三选/拍板；不展示对方历史 |
+| T6 | 示例档案数据（两位标注 "Sample" 的虚构人物，只用主控给出的真实 Qloo entity ID；原 T3 并入）+ README（英文）、LICENSE（MIT）、`.env.example`、手动测试步骤 | `src/server/services/demo-data.ts`（仅 `DEMO_PEOPLE`）、`README.md`、`LICENSE`、`.env.example`、`docs/TESTING.md` | 只含虚构人物；从干净环境可运行 |
 
 派发规则（写进每个 prompt）：
 1. 只改所有权列表内的文件；需要改契约时停下并在最终消息里说明，而不是修改 `src/domain`、`src/server`、`src/lib/api-types.ts`。
 2. 不安装依赖、不运行 git 写操作、不访问网络（真实 Qloo 由主控测）。
-3. 所有用户可见文本为英文，取自或新增到 `src/copy/en.ts` 中本任务专属的命名空间段落（T4 用 `taste.*`、T5 用 `room.*`）。
+3. 所有用户可见文本为英文，放入本任务专属的文案文件（`src/copy/home.ts`、`taste.ts`、`room.ts`，由 `src/copy/en.ts` 统一导出），不改核心文案。
 4. 结束前运行 `npm run typecheck` 与 `npm test`，在最终消息中报告结果和改动文件列表。
-5. 命令：`codex exec -m gpt-6.1-terra -c model_reasoning_effort=high -s workspace-write -C <repo> -o logs/<T>.md "<prompt>"`，日志写入被 gitignore 的 `logs/`。
+5. 命令：`cat logs/prompts/_common.md logs/prompts/<T>.md | codex exec -m gpt-6.1-terra -c model_reasoning_effort=high -s workspace-write --ephemeral -C <repo> -o logs/<T>.final.md -`。提示词与日志在被 gitignore 的 `logs/`；五个任务文件互不重叠，因此在同一工作树并行运行。
 
 ### Wave 3 — 集成与验证（🟣 + 🔍）
 - 逐个审查 Wave 2 diff（契约、所有权、权限、英文文案、无编造事实）。

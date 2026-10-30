@@ -56,12 +56,32 @@ function toRecord(r: SessionRow): SessionRecord {
   };
 }
 
-export async function insertSession(s: { ownerId: string; participantA: string; participantB?: string | null; consentB?: boolean; inviteTokenHash: string; constraints: Constraints; state: SessionState; expiresAt: string }): Promise<SessionRecord> {
+export async function insertSession(s: {
+  ownerId: string;
+  participantA: string;
+  participantB?: string | null;
+  consentB?: boolean;
+  inviteTokenHash: string;
+  constraints: Constraints;
+  state: SessionState;
+  expiresAt: string;
+}): Promise<SessionRecord> {
   const id = newId();
   await run(
     `INSERT INTO match_sessions (id, owner_id, invite_token_hash, participant_a, participant_b, consent_b, constraints, state, expires_at, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, s.ownerId, s.inviteTokenHash, s.participantA, s.participantB ?? null, s.consentB ? 1 : 0, JSON.stringify(s.constraints), s.state, s.expiresAt, now()],
+    [
+      id,
+      s.ownerId,
+      s.inviteTokenHash,
+      s.participantA,
+      s.participantB ?? null,
+      s.consentB ? 1 : 0,
+      JSON.stringify(s.constraints),
+      s.state,
+      s.expiresAt,
+      now(),
+    ],
   );
   return (await getSession(id))!;
 }
@@ -82,7 +102,12 @@ export async function claimSeatB(id: string, tokenHash: string, profileId: strin
 }
 
 /** Optimistic concurrency on version. Any constraint change resets both confirmations. */
-export async function updateConstraints(id: string, expectedVersion: number, constraints: Constraints, state: SessionState): Promise<boolean> {
+export async function updateConstraints(
+  id: string,
+  expectedVersion: number,
+  constraints: Constraints,
+  state: SessionState,
+): Promise<boolean> {
   const n = await run(
     `UPDATE match_sessions SET constraints = ?, version = version + 1, confirmed_a = 0, confirmed_b = 0, state = ? WHERE id = ? AND version = ?`,
     [JSON.stringify(constraints), state, id, expectedVersion],
@@ -107,7 +132,11 @@ export async function addRejected(id: string, placeId: string): Promise<void> {
 }
 
 export async function rotateInvite(id: string, ownerId: string, tokenHash: string): Promise<boolean> {
-  const n = await run('UPDATE match_sessions SET invite_token_hash = ? WHERE id = ? AND owner_id = ? AND participant_b IS NULL', [tokenHash, id, ownerId]);
+  const n = await run('UPDATE match_sessions SET invite_token_hash = ? WHERE id = ? AND owner_id = ? AND participant_b IS NULL', [
+    tokenHash,
+    id,
+    ownerId,
+  ]);
   return n > 0;
 }
 

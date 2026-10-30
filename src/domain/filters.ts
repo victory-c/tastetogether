@@ -54,10 +54,15 @@ export function applyHardFilters(input: FilterInput): FilterOutput {
   return { kept, excluded };
 
   function firstExclusion(c: Candidate): Exclusion | null {
-    const ex = (reason: Exclusion['reason'], participant: Exclusion['participant'] = null): Exclusion => ({ placeId: c.placeId, reason, participant });
+    const ex = (reason: Exclusion['reason'], participant: Exclusion['participant'] = null): Exclusion => ({
+      placeId: c.placeId,
+      reason,
+      participant,
+    });
     if (c.isClosed === true) return ex('closed_permanently');
     if (rejected.has(c.placeId)) return ex('rejected_this_session');
-    if (constraints.area && radius !== null && c.location && haversineM(constraints.area.center, c.location) > radius) return ex('outside_area');
+    if (constraints.area && radius !== null && c.location && haversineM(constraints.area.center, c.location) > radius)
+      return ex('outside_area');
     if (priceMax !== null && c.priceLevel !== null && c.priceLevel > priceMax) return ex('over_budget');
     for (const p of participants) {
       if (matchExcludedCuisine(c.tagIds, p.excludedCuisines)) return ex('excluded_cuisine', p.key);

@@ -44,7 +44,14 @@ export async function createSession(userId: string, constraints: Constraints, or
   const profile = await requireProfile(userId);
   if (profile.isDemo) throw new AppError('forbidden');
   const { token, hash } = newInviteToken();
-  const s = await repo.insertSession({ ownerId: userId, participantA: profile.id, inviteTokenHash: hash, constraints, state: 'waiting_for_partner', expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString() });
+  const s = await repo.insertSession({
+    ownerId: userId,
+    participantA: profile.id,
+    inviteTokenHash: hash,
+    constraints,
+    state: 'waiting_for_partner',
+    expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+  });
   return { ...(await toDTO(userId, { session: s, seat: 'A', isDemo: false })), inviteUrl: inviteUrl(origin, s.id, token) };
 }
 
@@ -72,7 +79,12 @@ export async function joinSession(userId: string, sessionId: string, token: stri
   return getSessionDTO(userId, sessionId);
 }
 
-export async function updateSessionConstraints(userId: string, sessionId: string, constraints: Constraints, expectedVersion: number): Promise<SessionDTO> {
+export async function updateSessionConstraints(
+  userId: string,
+  sessionId: string,
+  constraints: Constraints,
+  expectedVersion: number,
+): Promise<SessionDTO> {
   const { session } = await accessSession(userId, sessionId);
   assertLive(session);
   const next = session.participantB ? 'pending_confirmation' : 'waiting_for_partner';
@@ -101,7 +113,10 @@ export async function getSessionDTO(userId: string, sessionId: string): Promise<
 }
 
 /** A run is stale once the room's constraints or either profile changed after it ran. */
-export async function isRunStale(run: { constraintVersion: number; profileVersions: Record<string, number> }, session: repo.SessionRecord | null): Promise<boolean> {
+export async function isRunStale(
+  run: { constraintVersion: number; profileVersions: Record<string, number> },
+  session: repo.SessionRecord | null,
+): Promise<boolean> {
   if (session && run.constraintVersion !== session.version) return true;
   for (const [profileId, version] of Object.entries(run.profileVersions)) {
     const p = await getProfileById(profileId);
@@ -122,7 +137,13 @@ async function toDTO(userId: string, { session, seat, isDemo }: SessionAccess): 
     isDemo,
     participants: [
       { key: 'A', displayName: a?.displayName ?? 'Host', joined: true, confirmed: session.confirmedA, isYou: seat === 'A' },
-      { key: 'B', displayName: b?.displayName ?? 'Your friend', joined: Boolean(b), confirmed: session.confirmedB, isYou: seat === 'B' && !isDemo },
+      {
+        key: 'B',
+        displayName: b?.displayName ?? 'Your friend',
+        joined: Boolean(b),
+        confirmed: session.confirmedB,
+        isYou: seat === 'B' && !isDemo,
+      },
     ],
     constraints: session.constraints,
     version: session.version,

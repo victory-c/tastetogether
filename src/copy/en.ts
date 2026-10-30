@@ -76,7 +76,8 @@ const unknowns = {
 const conditions = {
   area: 'Choose a search area.',
   signals: (name: string) => `${name} needs at least one liked restaurant or interest before we can search.`,
-  hoursRequired: (n: number) => `${n} matching ${n === 1 ? 'place has' : 'places have'} unverified hours. Turn off "Must be open" or confirm hours yourself.`,
+  hoursRequired: (n: number) =>
+    `${n} matching ${n === 1 ? 'place has' : 'places have'} unverified hours. Turn off "Must be open" or confirm hours yourself.`,
   partnerMissing: 'Waiting for your friend to join.',
   confirmations: 'Both of you need to confirm the conditions.',
 };

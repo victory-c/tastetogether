@@ -12,7 +12,8 @@ import { participantView } from './participants';
 import { requireProfile } from './profiles';
 import { accessSession, isRunStale } from './sessions';
 
-const QLOO_CALLS_PER_RUN = 8;
+// Normal round 4 calls + expansion round 4 calls, with headroom for one retry each.
+const QLOO_CALLS_PER_RUN = 12;
 
 function realQloo(budget: QlooBudget): QlooPort {
   const wrap = async <T>(fn: () => Promise<T>): Promise<T> => {
@@ -31,16 +32,37 @@ function realQloo(budget: QlooBudget): QlooPort {
 
 const writeReasons: ReasonWriter = async (cards, participants, constraints, descriptions) =>
   llmReasons(
-    factsFor(cards, participants.map((p) => ({ name: p.displayName, likes: p.positiveEntityNames.slice(0, 3) })), constraints.occasion, descriptions),
+    factsFor(
+      cards,
+      participants.map((p) => ({ name: p.displayName, likes: p.positiveEntityNames.slice(0, 3) })),
+      constraints.occasion,
+      descriptions,
+    ),
     cards.map((c) => c.name),
   );
 
-async function execute(opts: { ownerId: string; sessionId: string | null; idempotencyKey: string; participants: ParticipantView[]; constraints: Constraints; constraintVersion: number; rejected: string[] }): Promise<RecommendationResult> {
+async function execute(opts: {
+  ownerId: string;
+  sessionId: string | null;
+  idempotencyKey: string;
+  participants: ParticipantView[];
+  constraints: Constraints;
+  constraintVersion: number;
+  rejected: string[];
+}): Promise<RecommendationResult> {
   const prior = await getRunByIdempotencyKey(opts.ownerId, opts.idempotencyKey);
   if (prior) return prior.result;
   const budget = new QlooBudget(QLOO_CALLS_PER_RUN);
   const runId = crypto.randomUUID();
-  const out = await coordinate({ participants: opts.participants, constraints: opts.constraints, rejectedThisSession: opts.rejected, qloo: realQloo(budget), writeReasons, runId, now: new Date() });
+  const out = await coordinate({
+    participants: opts.participants,
+    constraints: opts.constraints,
+    rejectedThisSession: opts.rejected,
+    qloo: realQloo(budget),
+    writeReasons,
+    runId,
+    now: new Date(),
+  });
   await insertRun({
     id: runId,
     sessionId: opts.sessionId,
@@ -56,10 +78,15 @@ async function execute(opts: { ownerId: string; sessionId: string | null; idempo
   return out.result;
 }
 
-export async function recommendSolo(userId: string, idempotencyKey: string, constraints: Constraints): Promise<RecommendationResult> {
+export async function recommendSolo(
+  userId: string,
+  idempotencyKey: string,
+  constraints: Constraints,
+  rejected: string[] = [],
+): Promise<RecommendationResult> {
   const profile = await requireProfile(userId);
   const view = await participantView(profile, 'A');
-  return execute({ ownerId: userId, sessionId: null, idempotencyKey, participants: [view], constraints, constraintVersion: 0, rejected: [] });
+  return execute({ ownerId: userId, sessionId: null, idempotencyKey, participants: [view], constraints, constraintVersion: 0, rejected });
 }
 
 export async function latestSolo(userId: string): Promise<RecommendationResult | null> {
@@ -77,8 +104,21 @@ export async function recommendForSession(userId: string, sessionId: string, ide
   const participants = await Promise.all([participantView(a, 'A'), participantView(b, 'B')]);
   await sessionRepo.setState(sessionId, 'querying');
   try {
-    const result = await execute({ ownerId: userId, sessionId, idempotencyKey, participants, constraints: session.constraints, constraintVersion: session.version, rejected: session.rejectedPlaceIds });
-    const next = { success: 'completed', no_match: 'needs_relaxation', needs_clarification: 'pending_confirmation', provider_unavailable: 'failed' } as const;
+    const result = await execute({
+      ownerId: userId,
+      sessionId,
+      idempotencyKey,
+      participants,
+      constraints: session.constraints,
+      constraintVersion: session.version,
+      rejected: session.rejectedPlaceIds,
+    });
+    const next = {
+      success: 'completed',
+      no_match: 'needs_relaxation',
+      needs_clarification: 'pending_confirmation',
+      provider_unavailable: 'failed',
+    } as const;
     await sessionRepo.setState(sessionId, next[result.status]);
     return result;
   } catch (err) {

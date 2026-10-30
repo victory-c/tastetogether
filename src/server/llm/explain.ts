@@ -7,7 +7,15 @@ const TIMEOUT_MS = 8_000;
 interface ExplainFacts {
   occasion: string | null;
   participants: { name: string; likes: string[] }[];
-  cards: { placeId: string; name: string; cuisines: string[]; priceLevel: number | null; distanceMiles: number | null; templateReasons: string[]; qlooDescription: string | null }[];
+  cards: {
+    placeId: string;
+    name: string;
+    cuisines: string[];
+    priceLevel: number | null;
+    distanceMiles: number | null;
+    templateReasons: string[];
+    qlooDescription: string | null;
+  }[];
 }
 
 const SYSTEM = `You write short restaurant recommendation reasons for a dining app.
@@ -57,7 +65,12 @@ export async function llmReasons(facts: ExplainFacts, allNames: string[]): Promi
   }
 }
 
-export function factsFor(cards: RecommendationCard[], participants: { name: string; likes: string[] }[], occasion: string | null, descriptions: Map<string, string | null>): ExplainFacts {
+export function factsFor(
+  cards: RecommendationCard[],
+  participants: { name: string; likes: string[] }[],
+  occasion: string | null,
+  descriptions: Map<string, string | null>,
+): ExplainFacts {
   return {
     occasion,
     participants,

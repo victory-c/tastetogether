@@ -31,7 +31,11 @@ const memoryFields = {
   name: shortText(200),
   address: z.string().trim().max(300).nullable(),
   status: z.enum(['visited', 'want_to_try', 'dismissed']),
-  visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  visitDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
   visitCount: z.number().int().min(0).max(1000).nullable().optional(),
   rating: z.enum(['liked', 'neutral', 'disliked']).nullable().optional(),
   revisitIntent: z.boolean().nullable().optional(),
@@ -40,7 +44,13 @@ export const memoryInputSchema = z.object(memoryFields);
 export const memoryPatchSchema = z.object(memoryFields).partial();
 
 export const constraintsSchema = z.object({
-  area: z.object({ center: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }), radiusM: z.number().int().min(300).max(25_000), label: shortText(80) }).nullable(),
+  area: z
+    .object({
+      center: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }),
+      radiusM: z.number().int().min(300).max(25_000),
+      label: shortText(80),
+    })
+    .nullable(),
   priceMax: priceLevel.nullable(),
   budgetNote: z.string().trim().max(120).nullable(),
   timeWindow: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), start: hhmm, end: hhmm }).nullable(),
@@ -56,7 +66,12 @@ export const joinSessionSchema = z.object({ token: z.string().min(16).max(100), 
 export const updateConstraintsSchema = z.object({ constraints: constraintsSchema, expectedVersion: z.number().int().min(1) });
 export const confirmSchema = z.object({ expectedVersion: z.number().int().min(1) });
 export const rejectSchema = z.object({ placeId: entityId, reason: z.string().trim().max(200).nullable().optional() });
-export const recommendSchema = z.object({ sessionId: z.string().uuid().nullable(), idempotencyKey: z.string().uuid(), constraints: constraintsSchema.optional() });
+export const recommendSchema = z.object({
+  sessionId: z.string().uuid().nullable(),
+  idempotencyKey: z.string().uuid(),
+  constraints: constraintsSchema.optional(),
+  rejectedPlaceIds: z.array(entityId).max(50).optional(),
+});
 export const feedbackSchema = z.object({
   runId: z.string().uuid(),
   placeId: entityId,

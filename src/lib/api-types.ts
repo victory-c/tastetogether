@@ -177,6 +177,8 @@ export interface RecommendInput {
   idempotencyKey: string;
   /** Solo runs only. Session runs always use the session's confirmed constraints. */
   constraints?: Constraints;
+  /** Solo runs only: places skipped with "Try another" in this solo search (session runs track this server-side). */
+  rejectedPlaceIds?: string[];
 }
 export type RecommendResponse = { result: RecommendationResult };
 

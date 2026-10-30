@@ -31,6 +31,9 @@ export async function loadDemo(visitorId: string): Promise<string> {
     state: 'pending_confirmation',
     expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
   });
+  // Both sample people "agree" up front so the one-minute demo can generate immediately.
+  await sessionRepo.setConfirmed(s.id, 'A', s.version);
+  await sessionRepo.setConfirmed(s.id, 'B', s.version);
   return s.id;
 }
 

@@ -52,7 +52,22 @@ export async function createMemory(profileId: string, input: MemoryInput, source
     await run(
       `INSERT INTO memories (id, profile_id, place_id, unresolved_name, name, address, status, visit_date, visit_count, rating, revisit_intent, source, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, profileId, input.placeId, input.placeId ? null : input.name, input.name, input.address, input.status, input.visitDate ?? null, input.visitCount ?? null, input.rating ?? null, boolToInt(input.revisitIntent), source, ts, ts],
+      [
+        id,
+        profileId,
+        input.placeId,
+        input.placeId ? null : input.name,
+        input.name,
+        input.address,
+        input.status,
+        input.visitDate ?? null,
+        input.visitCount ?? null,
+        input.rating ?? null,
+        boolToInt(input.revisitIntent),
+        source,
+        ts,
+        ts,
+      ],
     );
   } catch (err) {
     if (String(err).includes('UNIQUE')) throw new DuplicateMemoryError('This place is already in your history');
@@ -81,7 +96,20 @@ export async function updateMemory(profileId: string, id: string, patch: MemoryP
     await run(
       `UPDATE memories SET place_id = ?, unresolved_name = ?, name = ?, address = ?, status = ?, visit_date = ?, visit_count = ?, rating = ?, revisit_intent = ?, updated_at = ?
        WHERE id = ? AND profile_id = ?`,
-      [next.placeId, next.placeId ? null : next.name, next.name, next.address, next.status, next.visitDate ?? null, next.visitCount ?? null, next.rating ?? null, boolToInt(next.revisitIntent), now(), id, profileId],
+      [
+        next.placeId,
+        next.placeId ? null : next.name,
+        next.name,
+        next.address,
+        next.status,
+        next.visitDate ?? null,
+        next.visitCount ?? null,
+        next.rating ?? null,
+        boolToInt(next.revisitIntent),
+        now(),
+        id,
+        profileId,
+      ],
     );
   } catch (err) {
     if (String(err).includes('UNIQUE')) throw new DuplicateMemoryError('This place is already in your history');

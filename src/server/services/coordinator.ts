@@ -6,9 +6,20 @@ import { copy } from '@/copy/en';
 import { cuisineNames } from '@/domain/cuisines';
 import { selectForMode, suggestRelaxations, summarizeExclusions, wantedCount } from '@/domain/decision';
 import { applyHardFilters, effectivePriceMax, effectiveRadiusM } from '@/domain/filters';
+import { reasonsAreSafe } from '@/domain/validate';
 import { hoursTextFor, weekdayOf } from '@/domain/hours';
 import { rankCandidates, type AffinityTable } from '@/domain/ranking';
-import { WEEKDAYS, type Candidate, type Constraints, type Exclusion, type ParticipantKey, type ParticipantView, type RecommendationCard, type RecommendationResult, type ScoredCandidate } from '@/domain/types';
+import {
+  WEEKDAYS,
+  type Candidate,
+  type Constraints,
+  type Exclusion,
+  type ParticipantKey,
+  type ParticipantView,
+  type RecommendationCard,
+  type RecommendationResult,
+  type ScoredCandidate,
+} from '@/domain/types';
 import { templateReasons } from '../llm/templates';
 
 export interface DiscoverRequest {
@@ -32,7 +43,12 @@ export class ProviderUnavailableError extends Error {
   }
 }
 
-export type ReasonWriter = (cards: RecommendationCard[], participants: ParticipantView[], constraints: Constraints, descriptions: Map<string, string | null>) => Promise<Map<string, string[]> | null>;
+export type ReasonWriter = (
+  cards: RecommendationCard[],
+  participants: ParticipantView[],
+  constraints: Constraints,
+  descriptions: Map<string, string | null>,
+) => Promise<Map<string, string[]> | null>;
 
 export interface CoordinatorInput {
   participants: ParticipantView[];
@@ -48,7 +64,10 @@ export interface CoordinatorInput {
 export interface CoordinatorOutput {
   result: RecommendationResult;
   candidateIds: string[];
-  evidence: { excluded: Exclusion[]; ranked: { placeId: string; scores: ScoredCandidate['scores']; minUtility: number; meanUtility: number }[] };
+  evidence: {
+    excluded: Exclusion[];
+    ranked: { placeId: string; scores: ScoredCandidate['scores']; minUtility: number; meanUtility: number }[];
+  };
 }
 
 /** 2 discovery + 2 scoring calls normally, plus one bounded expansion round. */
@@ -64,7 +83,11 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
   if (!constraints.area) missing.push(copy.conditions.area);
   for (const p of participants) if (p.positiveEntityIds.length === 0) missing.push(copy.conditions.signals(p.displayName));
   if (missing.length) {
-    return { result: { ...base, status: 'needs_clarification', conditionsToConfirm: missing, message: copy.status.needs_clarification }, candidateIds: [], evidence: { excluded: [], ranked: [] } };
+    return {
+      result: { ...base, status: 'needs_clarification', conditionsToConfirm: missing, message: copy.status.needs_clarification },
+      candidateIds: [],
+      evidence: { excluded: [], ranked: [] },
+    };
   }
   const area = constraints.area!;
   const priceMax = effectivePriceMax(constraints, participants);
@@ -84,7 +107,9 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
     // Hard constraints are identical in both rounds.
     for (const take of solo ? [40, 50] : [25, 50]) {
       const lists = await Promise.all(
-        participants.map((p) => qloo.discover({ signalEntityIds: p.positiveEntityIds, center: area.center, radiusM, priceMax, take }, `discover_${p.key}`)),
+        participants.map((p) =>
+          qloo.discover({ signalEntityIds: p.positiveEntityIds, center: area.center, radiusM, priceMax, take }, `discover_${p.key}`),
+        ),
       );
       ({ pool, discoveryAffinity } = mergeCandidates(lists, solo));
       filtered = applyHardFilters({ candidates: pool, participants, constraints, rejectedThisSession });
@@ -92,7 +117,9 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
       const affinities: AffinityTable = {};
       if (solo) {
         // Solo: discovery affinities all come from one query, so they are already comparable.
-        affinities.A = new Map(filtered.kept.flatMap((c) => (discoveryAffinity.has(c.placeId) ? [[c.placeId, discoveryAffinity.get(c.placeId)!] as const] : [])));
+        affinities.A = new Map(
+          filtered.kept.flatMap((c) => (discoveryAffinity.has(c.placeId) ? [[c.placeId, discoveryAffinity.get(c.placeId)!] as const] : [])),
+        );
       } else {
         // Two people: score the same filtered pool against each person's own signals, one query each.
         const scorePool = interleaveCap(filtered.kept, SCORE_POOL);
@@ -108,7 +135,11 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
   } catch (err) {
     if (err instanceof ProviderUnavailableError) {
       return {
-        result: { ...base, status: 'provider_unavailable', message: err.rateLimited ? copy.errors.rate_limited : copy.status.provider_unavailable },
+        result: {
+          ...base,
+          status: 'provider_unavailable',
+          message: err.rateLimited ? copy.errors.rate_limited : copy.status.provider_unavailable,
+        },
         candidateIds: [],
         evidence: { excluded: [], ranked: [] },
       };
@@ -122,25 +153,41 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
     ranked: ranked.map((r) => ({ placeId: r.candidate.placeId, scores: r.scores, minUtility: r.minUtility, meanUtility: r.meanUtility })),
   };
   const candidateIds = pool.map((c) => c.placeId);
-  const historyIncomplete = participants.some((p) => p.hasUnresolvedHistory);
+  // Surfaced through result.historyIncomplete (the UI shows one warning), not duplicated in unknowns.
+  const historyIncomplete = constraints.excludeVisited && participants.some((p) => p.hasUnresolvedHistory);
   const exclusionSummary = summarizeExclusions(excluded);
 
   const unknowns: string[] = [];
   if (constraints.budgetNote) unknowns.push(copy.unknowns.budgetNote(constraints.budgetNote));
-  if (historyIncomplete && constraints.excludeVisited) unknowns.push(copy.unknowns.unresolvedHistory);
   if (missingScores.length) unknowns.push(copy.unknowns.partialScores(missingScores.length));
 
   // 2. Nothing selectable.
   if (selection.selected.length === 0) {
     if (selection.heldForUnverifiedHours > 0) {
       return {
-        result: { ...base, status: 'needs_clarification', unknowns, historyIncomplete, exclusionSummary, conditionsToConfirm: [copy.conditions.hoursRequired(selection.heldForUnverifiedHours)], message: copy.status.needs_clarification },
+        result: {
+          ...base,
+          status: 'needs_clarification',
+          unknowns,
+          historyIncomplete,
+          exclusionSummary,
+          conditionsToConfirm: [copy.conditions.hoursRequired(selection.heldForUnverifiedHours)],
+          message: copy.status.needs_clarification,
+        },
         candidateIds,
         evidence,
       };
     }
     return {
-      result: { ...base, status: 'no_match', unknowns, historyIncomplete, exclusionSummary, relaxationOptions: suggestRelaxations(excluded, constraints), message: copy.status.no_match },
+      result: {
+        ...base,
+        status: 'no_match',
+        unknowns,
+        historyIncomplete,
+        exclusionSummary,
+        relaxationOptions: suggestRelaxations(excluded, constraints),
+        message: copy.status.no_match,
+      },
       candidateIds,
       evidence,
     };
@@ -152,7 +199,15 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
   let explanationSource: RecommendationResult['explanationSource'] = 'template';
   if (input.writeReasons) {
     const rewritten = await input.writeReasons(cards, participants, constraints, descriptions).catch(() => null);
-    if (rewritten && rewritten.size === cards.length) {
+    // Validate here too: a writer is untrusted, and partial or unsafe output falls back to templates.
+    const names = cards.map((c) => c.name);
+    const safe =
+      rewritten &&
+      cards.every((c) => {
+        const reasons = rewritten.get(c.placeId);
+        return reasons !== undefined && reasonsAreSafe({ reasons, allowedNames: [c.name], forbiddenNames: names });
+      });
+    if (rewritten && safe) {
       cards = cards.map((c) => ({ ...c, reasons: rewritten.get(c.placeId) ?? c.reasons }));
       explanationSource = 'llm';
     }
@@ -202,7 +257,10 @@ function emptyResult(input: CoordinatorInput): RecommendationResult {
 }
 
 /** Union by entity id, interleaving lists so neither participant dominates the head of the pool. */
-function mergeCandidates(lists: { candidate: Candidate; affinity: number | null }[][], solo: boolean): { pool: Candidate[]; discoveryAffinity: Map<string, number> } {
+function mergeCandidates(
+  lists: { candidate: Candidate; affinity: number | null }[][],
+  solo: boolean,
+): { pool: Candidate[]; discoveryAffinity: Map<string, number> } {
   const pool: Candidate[] = [];
   const seen = new Set<string>();
   const discoveryAffinity = new Map<string, number>();
@@ -224,7 +282,12 @@ function interleaveCap(candidates: Candidate[], cap: number): Candidate[] {
   return candidates.slice(0, cap);
 }
 
-function toCard(s: ScoredCandidate, participants: ParticipantView[], constraints: Constraints, priceMax: number | null): RecommendationCard {
+function toCard(
+  s: ScoredCandidate,
+  participants: ParticipantView[],
+  constraints: Constraints,
+  priceMax: number | null,
+): RecommendationCard {
   const c = s.candidate;
   const day = constraints.timeWindow ? weekdayOf(constraints.timeWindow.date) : WEEKDAYS[0];
   const hoursText = constraints.timeWindow ? hoursTextFor(c.hours, day) : null;
@@ -235,7 +298,8 @@ function toCard(s: ScoredCandidate, participants: ParticipantView[], constraints
   if (c.address) venueFacts.push({ field: 'address', value: c.address, source: 'qloo' });
   if (c.priceLevel !== null) venueFacts.push({ field: 'price_level', value: '$'.repeat(c.priceLevel), source: 'qloo' });
   if (hoursText) venueFacts.push({ field: 'hours', value: hoursText, source: 'qloo' });
-  if (s.distanceM !== null) venueFacts.push({ field: 'distance', value: `${(s.distanceM / 1609.344).toFixed(1)} mi (straight-line)`, source: 'computed' });
+  if (s.distanceM !== null)
+    venueFacts.push({ field: 'distance', value: `${(s.distanceM / 1609.344).toFixed(1)} mi (straight-line)`, source: 'computed' });
   const cuisines = cuisineNames(c.tagIds, c.tagNames);
   if (cuisines.length) venueFacts.push({ field: 'cuisine', value: cuisines.join(', '), source: 'qloo' });
 

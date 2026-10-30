@@ -7,7 +7,9 @@ function hhmm(t: string | null | undefined): string | null {
   return m ? `${m[1]}:${m[2]}` : null;
 }
 
-export function mapHours(raw: Record<string, { closed?: boolean | null; opens?: string | null; closes?: string | null }[]> | null | undefined): WeeklyHours | null {
+export function mapHours(
+  raw: Record<string, { closed?: boolean | null; opens?: string | null; closes?: string | null }[]> | null | undefined,
+): WeeklyHours | null {
   if (!raw) return null;
   const out: WeeklyHours = {};
   let any = false;
@@ -47,7 +49,9 @@ export function mapEntity(e: QlooEntity): Candidate {
     hours: mapHours(p.hours ?? null),
     isClosed: p.is_closed ?? null,
     website: p.website ?? null,
-    externalUrl: e.external?.resy?.url ?? (e.external?.google_place?.place_id ? `https://www.google.com/maps/place/?q=place_id:${e.external.google_place.place_id}` : null),
+    externalUrl:
+      e.external?.resy?.url ??
+      (e.external?.google_place?.place_id ? `https://www.google.com/maps/place/?q=place_id:${e.external.google_place.place_id}` : null),
     description: p.short_description ?? p.description ?? null,
   };
 }

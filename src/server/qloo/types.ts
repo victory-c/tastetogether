@@ -13,7 +13,7 @@ const interval = z.object({
 const externalSource = <T extends z.ZodRawShape>(shape: T) =>
   z
     .union([z.object(shape).partial(), z.array(z.object(shape).partial())])
-    .transform((v) => (Array.isArray(v) ? v[0] ?? null : v))
+    .transform((v) => (Array.isArray(v) ? (v[0] ?? null) : v))
     .nullish();
 
 export const qlooTagSchema = z.object({

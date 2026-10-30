@@ -55,7 +55,20 @@ export async function insertRun(r: {
   await run(
     `INSERT INTO recommendation_runs (id, session_id, owner_id, idempotency_key, profile_versions, constraint_version, provider_refs, candidate_ids, evidence, result, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [r.id, r.sessionId, r.ownerId, r.idempotencyKey, JSON.stringify(r.profileVersions), r.constraintVersion, JSON.stringify(r.providerRefs), JSON.stringify(r.candidateIds), JSON.stringify(r.evidence), JSON.stringify(r.result), r.result.status, r.result.createdAt],
+    [
+      r.id,
+      r.sessionId,
+      r.ownerId,
+      r.idempotencyKey,
+      JSON.stringify(r.profileVersions),
+      r.constraintVersion,
+      JSON.stringify(r.providerRefs),
+      JSON.stringify(r.candidateIds),
+      JSON.stringify(r.evidence),
+      JSON.stringify(r.result),
+      r.result.status,
+      r.result.createdAt,
+    ],
   );
 }
 
@@ -75,13 +88,34 @@ export async function latestRunForSession(sessionId: string): Promise<RunRecord 
 }
 
 export async function latestSoloRun(ownerId: string): Promise<RunRecord | null> {
-  const r = await one<RunRow>('SELECT * FROM recommendation_runs WHERE owner_id = ? AND session_id IS NULL ORDER BY created_at DESC LIMIT 1', [ownerId]);
+  const r = await one<RunRow>(
+    'SELECT * FROM recommendation_runs WHERE owner_id = ? AND session_id IS NULL ORDER BY created_at DESC LIMIT 1',
+    [ownerId],
+  );
   return r ? toRecord(r) : null;
 }
 
-export async function insertFeedback(f: { runId: string; profileId: string; placeId: string; kind: 'selected' | 'dismissed' | 'visited'; rating?: string | null; revisitIntent?: boolean | null; reason?: string | null }): Promise<void> {
+export async function insertFeedback(f: {
+  runId: string;
+  profileId: string;
+  placeId: string;
+  kind: 'selected' | 'dismissed' | 'visited';
+  rating?: string | null;
+  revisitIntent?: boolean | null;
+  reason?: string | null;
+}): Promise<void> {
   await run(
     'INSERT INTO feedback (id, run_id, profile_id, place_id, kind, rating, revisit_intent, reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [crypto.randomUUID(), f.runId, f.profileId, f.placeId, f.kind, f.rating ?? null, f.revisitIntent === undefined || f.revisitIntent === null ? null : f.revisitIntent ? 1 : 0, f.reason ?? null, now()],
+    [
+      crypto.randomUUID(),
+      f.runId,
+      f.profileId,
+      f.placeId,
+      f.kind,
+      f.rating ?? null,
+      f.revisitIntent === undefined || f.revisitIntent === null ? null : f.revisitIntent ? 1 : 0,
+      f.reason ?? null,
+      now(),
+    ],
   );
 }

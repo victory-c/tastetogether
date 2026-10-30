@@ -7,12 +7,24 @@ function topPct(rank: number, poolSize: number): number {
 }
 
 /** Deterministic English reasons built only from structured facts. Always available. */
-export function templateReasons(s: ScoredCandidate, participants: ParticipantView[], excludeVisited: boolean, priceMax: number | null): string[] {
+export function templateReasons(
+  s: ScoredCandidate,
+  participants: ParticipantView[],
+  excludeVisited: boolean,
+  priceMax: number | null,
+): string[] {
   const out: string[] = [];
   const [a, b] = participants;
   const score = (k: ParticipantKey) => s.scores[k]!;
   if (a && b) {
-    out.push(copy.reasons.bothRank(a.displayName, b.displayName, topPct(score('A').rank, score('A').poolSize), topPct(score('B').rank, score('B').poolSize)));
+    out.push(
+      copy.reasons.bothRank(
+        a.displayName,
+        b.displayName,
+        topPct(score('A').rank, score('A').poolSize),
+        topPct(score('B').rank, score('B').poolSize),
+      ),
+    );
   } else if (a) {
     out.push(copy.reasons.soloRank(a.displayName, topPct(score('A').rank, score('A').poolSize)));
     out.push(copy.reasons.basedOn(a.displayName, a.positiveEntityNames));

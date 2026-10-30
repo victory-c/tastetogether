@@ -55,8 +55,18 @@ async function get(path: string, params: Record<string, string>, budget: QlooBud
     takeGlobal();
     const started = Date.now();
     try {
-      const res = await fetch(url, { headers: { 'X-Api-Key': key, Accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT_MS), cache: 'no-store' });
-      const ref: QlooRequestRef = { endpoint: path.includes('insights') ? 'insights' : 'search', purpose, status: res.status, ms: Date.now() - started, resultCount: 0 };
+      const res = await fetch(url, {
+        headers: { 'X-Api-Key': key, Accept: 'application/json' },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+        cache: 'no-store',
+      });
+      const ref: QlooRequestRef = {
+        endpoint: path.includes('insights') ? 'insights' : 'search',
+        purpose,
+        status: res.status,
+        ms: Date.now() - started,
+        resultCount: 0,
+      };
       budget.refs.push(ref);
       if (res.status >= 500 || res.status === 429) {
         lastError = new QlooError('http', `Qloo HTTP ${res.status}`, res.status);
@@ -69,7 +79,14 @@ async function get(path: string, params: Record<string, string>, budget: QlooBud
       if (err instanceof QlooError && err.kind !== 'http') throw err;
       if (err instanceof QlooError && err.httpStatus && err.httpStatus < 500 && err.httpStatus !== 429) throw err;
       const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
-      if (!(err instanceof QlooError)) budget.refs.push({ endpoint: path.includes('insights') ? 'insights' : 'search', purpose, status: timedOut ? 'timeout' : 'error', ms: Date.now() - started, resultCount: 0 });
+      if (!(err instanceof QlooError))
+        budget.refs.push({
+          endpoint: path.includes('insights') ? 'insights' : 'search',
+          purpose,
+          status: timedOut ? 'timeout' : 'error',
+          ms: Date.now() - started,
+          resultCount: 0,
+        });
       lastError = timedOut ? new QlooError('timeout', 'Qloo request timed out') : err;
     }
   }
@@ -144,7 +161,12 @@ export function discover(p: DiscoverParams, budget: QlooBudget, purpose: string)
  * Score a fixed candidate set against one participant's signals in ONE query, so every
  * affinity for this participant is comparable. Callers must cap the pool at MAX_SCORE_POOL.
  */
-export async function scoreCandidates(signalEntityIds: string[], placeIds: string[], budget: QlooBudget, purpose: string): Promise<Map<string, number>> {
+export async function scoreCandidates(
+  signalEntityIds: string[],
+  placeIds: string[],
+  budget: QlooBudget,
+  purpose: string,
+): Promise<Map<string, number>> {
   if (placeIds.length > MAX_SCORE_POOL) throw new Error(`scoring pool exceeds ${MAX_SCORE_POOL}`);
   const out = new Map<string, number>();
   if (placeIds.length === 0) return out;

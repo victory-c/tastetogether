@@ -10,13 +10,7 @@ export type ParticipantKey = 'A' | 'B';
 
 export type RunStatus = 'success' | 'needs_clarification' | 'no_match' | 'provider_unavailable';
 
-export type SessionState =
-  | 'waiting_for_partner'
-  | 'pending_confirmation'
-  | 'querying'
-  | 'needs_relaxation'
-  | 'completed'
-  | 'failed';
+export type SessionState = 'waiting_for_partner' | 'pending_confirmation' | 'querying' | 'needs_relaxation' | 'completed' | 'failed';
 
 export const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
