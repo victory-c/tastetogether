@@ -7,7 +7,8 @@ let client: Client | null = null;
 let ready: Promise<void> | null = null;
 
 function databaseUrl(): string {
-  const url = process.env.DATABASE_URL;
+  // The Vercel Turso integration injects TURSO_*; DATABASE_* wins when both are set.
+  const url = process.env.DATABASE_URL ?? process.env.TURSO_DATABASE_URL;
   if (url) return url;
   if (process.env.NODE_ENV === 'production' && process.env.VERCEL) throw new Error('DATABASE_URL must be set in production');
   mkdirSync('./data', { recursive: true });
@@ -21,7 +22,7 @@ export async function migrate(db: Client): Promise<void> {
 
 export async function db(): Promise<Client> {
   if (!client) {
-    client = createClient({ url: databaseUrl(), authToken: process.env.DATABASE_AUTH_TOKEN });
+    client = createClient({ url: databaseUrl(), authToken: process.env.DATABASE_AUTH_TOKEN ?? process.env.TURSO_AUTH_TOKEN });
     // A failed cold-start migration must not poison this instance: reset so the next request retries.
     ready = migrate(client).catch((err: unknown) => {
       client = null;

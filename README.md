@@ -2,7 +2,7 @@
 
 TasteTogether is a two-person dining agent with memory for the Berkeley area. It also supports solo discovery: people record preferences and dining history, then use shared constraints and history to find a place to eat together. The demo uses two fictional, clearly labeled sample people and real Qloo requests.
 
-Live demo: TBD
+Live demo: https://tastetogether.vercel.app (click **Try the one-minute demo**; no sign-up needed)
 
 ## How Qloo is used
 
@@ -51,7 +51,7 @@ The setup script saves the Qloo key and host in `.env.local`. Its current prompt
 | --- | --- |
 | `QLOO_API_KEY` | Required server-side key for live Qloo requests. |
 | `QLOO_API_URL` | Qloo host; defaults to `https://hackathon.api.qloo.com`. |
-| `DATABASE_URL` | libSQL URL; leave empty for the automatically created local database. |
+| `DATABASE_URL` | libSQL URL; leave empty for the automatically created local database. `TURSO_DATABASE_URL` (set by the Vercel Turso integration) is also read. |
 | `DATABASE_AUTH_TOKEN` | Token for a remote libSQL database. |
 | `SESSION_SECRET` | Signing secret; at least 32 characters in production. |
 | `ANTHROPIC_API_KEY` | Optional key for generated explanations. |
@@ -72,7 +72,7 @@ The smoke test hits the real Qloo API and reads `.env.local`; it requires a vali
 
 ## Deployment
 
-The intended deployment is Vercel with a Turso libSQL database. Set the environment variables in Vercel, including the Turso URL and authentication token, Qloo key and host, and a unique `SESSION_SECRET` of at least 32 characters. Set the optional variables as needed. A deployment is not yet claimed here.
+Deployed on Vercel with a Turso libSQL database added through the Vercel Marketplace integration, which injects `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`. Also set `QLOO_API_KEY`, `QLOO_API_URL` and a unique `SESSION_SECRET` of at least 32 characters, then run `vercel deploy --prod`. The schema is created automatically on the first request. `.vercelignore` keeps local env files and the local database out of uploads.
 
 ## Known limitations
 
