@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { decodePerson, encodePerson } from "@/lib/client/invite";
 import { useMatch, type MatchBody } from "@/lib/client/useMatch";
-import { AREAS, DEFAULT_AREA, OCCASIONS } from "@/lib/taste/occasions";
+import { AREAS, DEFAULT_AREA, DEFAULT_VENUE, OCCASIONS, VENUES } from "@/lib/taste/occasions";
 import { SAMPLE_DUOS } from "@/lib/taste/samples";
 import type { Occasion, Person, Pick } from "@/lib/taste/types";
 
@@ -48,7 +48,15 @@ function writeHistory(items: HistoryItem[]) {
 
 const EMPTY_A: Person = { name: "You", interests: [] };
 const EMPTY_B: Person = { name: "Them", interests: [] };
-const DEFAULT_PLAN: Plan = { occasion: "date", areaId: DEFAULT_AREA.id, priceMax: null, vibe: "", mode: "three" };
+const DEFAULT_PLAN: Plan = {
+  occasion: "date",
+  areaId: DEFAULT_AREA.id,
+  priceMax: null,
+  vibe: "",
+  mode: "three",
+  venueId: DEFAULT_VENUE.id,
+  doors: 19 * 60 + 30,
+};
 
 export function MatchApp() {
   const params = useSearchParams();
@@ -70,8 +78,8 @@ export function MatchApp() {
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Hydrate thumbnails for interests that arrived without images (samples, invite links).
-  const hydrate = useCallback(async (people: Person[]) => {
-    const ids = people.flatMap((p) => p.interests.filter((i) => !i.image).map((i) => i.id));
+  const hydrate = useCallback(async (people: Person[], extra: string[] = []) => {
+    const ids = [...people.flatMap((p) => p.interests.filter((i) => !i.image).map((i) => i.id)), ...extra];
     if (ids.length === 0) return;
     try {
       const res = await fetch(`/api/entities?ids=${ids.join(",")}`);
@@ -79,6 +87,7 @@ export function MatchApp() {
       const fill = (p: Person): Person => ({ ...p, interests: p.interests.map((i) => (i.image ? i : { ...i, image: images[i.id] })) });
       setA((p) => fill(p));
       setB((p) => fill(p));
+      setPlan((pl) => (pl.performer && !pl.performer.image && images[pl.performer.id] ? { ...pl, performer: { ...pl.performer, image: images[pl.performer.id] } } : pl));
     } catch {
       // Thumbnails are decorative.
     }
@@ -90,13 +99,22 @@ export function MatchApp() {
       if (!duo) return null;
       setA(duo.a);
       setB(duo.b);
-      const nextPlan: Plan = { occasion: duo.occasion, areaId: duo.areaId, priceMax: duo.priceMax, vibe: duo.vibe, mode: "three" };
+      const nextPlan: Plan = {
+        ...DEFAULT_PLAN,
+        occasion: duo.occasion,
+        areaId: duo.areaId,
+        priceMax: duo.priceMax,
+        vibe: duo.vibe,
+        venueId: duo.show?.venueId ?? DEFAULT_VENUE.id,
+        doors: duo.show?.doors ?? DEFAULT_PLAN.doors,
+        performer: duo.show?.performer,
+      };
       setPlan(nextPlan);
       setActiveDuo(duo.id);
       setInvitedBy(null);
       reset();
       setChosen(null);
-      void hydrate([duo.a, duo.b]);
+      void hydrate([duo.a, duo.b], duo.show ? [duo.show.performer.id] : []);
       return { duo, plan: nextPlan };
     },
     [hydrate, reset],
@@ -120,6 +138,16 @@ export function MatchApp() {
         mode: pl.mode,
         vibe: pl.vibe.trim() || undefined,
         exclude,
+        show:
+          pl.occasion === "show"
+            ? {
+                venueId: pl.venueId,
+                doors: pl.doors,
+                performer: pl.performer
+                  ? { id: pl.performer.id, name: pl.performer.name, kind: pl.performer.kind, year: pl.performer.year }
+                  : undefined,
+              }
+            : undefined,
       };
     },
     [history],
@@ -440,8 +468,10 @@ export function MatchApp() {
                 <section className="mt-8" aria-live="polite">
                   <div className="mb-5">
                     <p className="text-xs font-semibold tracking-[0.14em] text-ink-soft uppercase">
-                      {OCCASIONS[plan.occasion].emoji} {OCCASIONS[plan.occasion].label} ·{" "}
-                      {plan.near ? "Near you" : AREAS.find((x) => x.id === plan.areaId)?.label}
+                      {OCCASIONS[plan.occasion].emoji}{" "}
+                      {plan.occasion === "show"
+                        ? `Before ${plan.performer?.name ?? "the show"} at ${VENUES.find((v) => v.id === plan.venueId)?.label ?? "the venue"}`
+                        : `${OCCASIONS[plan.occasion].label} · ${plan.near ? "Near you" : AREAS.find((x) => x.id === plan.areaId)?.label}`}
                       {state.when ? ` · ${state.when}` : ""}
                     </p>
                     <h2 className="mt-1 font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
@@ -515,8 +545,8 @@ export function MatchApp() {
                       <p className="text-xs font-semibold tracking-[0.14em] text-ink-soft uppercase">How the agent read your plan</p>
                       <ul className="mt-3 space-y-2 text-sm text-ink-soft">
                         <li>
-                          <span className="font-medium text-ink">Occasion:</span> {OCCASIONS[plan.occasion].label}, planned for {state.when?.toLowerCase()}
-                          ; places that won&apos;t be open then are pushed down.
+                          <span className="font-medium text-ink">Occasion:</span> {OCCASIONS[plan.occasion].label}, planned for {state.when?.toLowerCase()};
+                          places that won&apos;t be open then are pushed down.
                         </li>
                         {state.vibe && (
                           <li>

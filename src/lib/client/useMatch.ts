@@ -14,6 +14,7 @@ export interface MatchBody {
   mode: "three" | "one";
   vibe?: string;
   exclude?: string[];
+  show?: { venueId: string; doors: number; performer?: { id: string; name: string; kind: string; year?: number } };
 }
 
 export interface MatchState {

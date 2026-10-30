@@ -1,10 +1,13 @@
 "use client";
 
 import clsx from "clsx";
-import { LocateFixed, MapPin, Sparkles } from "lucide-react";
+import { Clock, LocateFixed, MapPin, Mic2, Sparkles, X } from "lucide-react";
 
-import { AREAS, DEFAULT_AREA, OCCASIONS } from "@/lib/taste/occasions";
-import type { DecisionMode, Occasion } from "@/lib/taste/types";
+import { formatClock } from "@/lib/taste/hours";
+import { AREAS, DEFAULT_AREA, OCCASIONS, VENUES } from "@/lib/taste/occasions";
+import type { DecisionMode, Interest, Occasion } from "@/lib/taste/types";
+
+import { TasteSearch, Thumb } from "./TasteSearch";
 
 export interface Plan {
   occasion: Occasion;
@@ -13,7 +16,12 @@ export interface Plan {
   priceMax: 1 | 2 | 3 | 4 | null;
   vibe: string;
   mode: DecisionMode;
+  venueId: string;
+  doors: number;
+  performer?: Interest;
 }
+
+const DOORS = [18 * 60, 18 * 60 + 30, 19 * 60, 19 * 60 + 30, 20 * 60, 20 * 60 + 30];
 
 const PRICES: { v: Plan["priceMax"]; label: string }[] = [
   { v: 1, label: "$" },
@@ -38,7 +46,7 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
     <section className="rounded-[28px] border border-line bg-paper/90 p-5 shadow-card backdrop-blur sm:p-6" aria-label="The plan">
       <h2 className="font-display text-xl font-semibold tracking-tight">What&apos;s the plan?</h2>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Occasion">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="radiogroup" aria-label="Occasion">
         {(Object.keys(OCCASIONS) as Occasion[]).map((k) => {
           const o = OCCASIONS[k];
           const on = plan.occasion === k;
@@ -65,6 +73,44 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
       </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-[1.4fr_1fr]">
+        {plan.occasion === "show" ? (
+          <div className="grid grid-cols-[1.5fr_1fr] gap-2">
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-ink-soft uppercase" htmlFor="venue">
+                <MapPin className="size-3.5" /> Venue
+              </label>
+              <select
+                id="venue"
+                value={plan.venueId}
+                onChange={(e) => set("venueId", e.target.value)}
+                className="w-full appearance-none rounded-xl border border-line bg-cream/60 px-3 py-2.5 text-sm font-medium outline-none focus:border-ink/40"
+              >
+                {VENUES.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label.charAt(0).toUpperCase() + v.label.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-ink-soft uppercase" htmlFor="doors">
+                <Clock className="size-3.5" /> Doors
+              </label>
+              <select
+                id="doors"
+                value={plan.doors}
+                onChange={(e) => set("doors", Number(e.target.value))}
+                className="w-full appearance-none rounded-xl border border-line bg-cream/60 px-3 py-2.5 text-sm font-medium outline-none focus:border-ink/40"
+              >
+                {DOORS.map((d) => (
+                  <option key={d} value={d}>
+                    {formatClock(d)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : (
         <div>
           <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-ink-soft uppercase" htmlFor="area">
             <MapPin className="size-3.5" /> Meet around
@@ -94,6 +140,7 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
             </button>
           </div>
         </div>
+        )}
         <div>
           <span className="mb-1.5 block text-xs font-semibold tracking-wide text-ink-soft uppercase">Budget</span>
           <div className="flex rounded-xl border border-line bg-cream/60 p-1" role="radiogroup" aria-label="Budget">
@@ -115,6 +162,33 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
           </div>
         </div>
       </div>
+
+      {plan.occasion === "show" && (
+        <div className="mt-4">
+          <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-ink-soft uppercase">
+            <Mic2 className="size-3.5" /> Who are you seeing?
+          </span>
+          {plan.performer ? (
+            <div className="flex items-center gap-2.5 rounded-xl border border-line bg-cream/60 px-3 py-2">
+              <Thumb src={plan.performer.image} alt="" kind={plan.performer.kind} size={30} />
+              <span className="flex-1 text-sm font-semibold">{plan.performer.name}</span>
+              <button
+                type="button"
+                onClick={() => set("performer", undefined)}
+                className="grid size-7 place-items-center rounded-full text-ink-faint hover:bg-line hover:text-ink"
+                aria-label="Remove performer"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <TasteSearch side="b" onPick={(i) => set("performer", i)} placeholder="Search the artist or show (optional)" />
+          )}
+          <p className="mt-1.5 text-xs text-ink-faint">
+            We plan dinner for {formatClock(plan.doors - 105 - ((plan.doors - 105) % 15))}, so you&apos;re fed and seated before doors.
+          </p>
+        </div>
+      )}
 
       <div className="mt-4">
         <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-ink-soft uppercase" htmlFor="vibe">

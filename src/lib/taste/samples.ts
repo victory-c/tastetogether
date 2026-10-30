@@ -1,4 +1,4 @@
-import type { Occasion, Person } from "./types";
+import type { Interest, Occasion, Person } from "./types";
 
 /** Clearly fictional demo people. Their favorites (and places they have been) are real Qloo entities, so every demo run hits the live API. */
 export interface SampleDuo {
@@ -11,6 +11,7 @@ export interface SampleDuo {
   priceMax: 1 | 2 | 3 | 4 | null;
   a: Person;
   b: Person;
+  show?: { venueId: string; doors: number; performer: Interest };
 }
 
 export const SAMPLE_DUOS: SampleDuo[] = [
@@ -42,6 +43,36 @@ export const SAMPLE_DUOS: SampleDuo[] = [
       { id: "878A5D45-469C-4556-8494-963C2B1D3A95", name: "Dune: Part Two", kind: "movie", year: 2024 },
       { id: "4C305B2F-5A46-4885-A6DA-5E22D11E86E0", name: "The Bear", kind: "tv_show", year: 2022 },
       { id: "2B134C93-39EB-4A08-A72D-5F8F1167FDAA", name: "Frank Ocean", kind: "artist" },
+      ],
+    },
+  },
+  {
+    id: "jess-marco",
+    title: "Jess & Marco",
+    story: "Two friends grabbing dinner before Hozier at the Greek Theatre",
+    occasion: "show",
+    vibe: "quick, lively, not too pricey",
+    areaId: "downtown-berkeley",
+    priceMax: 2,
+    show: {
+      venueId: "greek-theatre",
+      doors: 19 * 60 + 30,
+      performer: { id: "7D903E2F-70AB-44CB-AA88-82501E6D04DD", name: "Hozier", kind: "artist" },
+    },
+    a: {
+      name: "Jess",
+      interests: [
+        { id: "233F9195-E25B-4B33-B25C-A211C21EF583", name: "Florence + the Machine", kind: "artist" },
+        { id: "19DF9974-2931-42F7-AF6F-DC29B9E17974", name: "Normal People", kind: "tv_show", year: 2020 },
+        { id: "4BE414CF-375F-4566-AA66-9AC6150A6B7F", name: "Lady Bird", kind: "movie", year: 2017 },
+      ],
+    },
+    b: {
+      name: "Marco",
+      interests: [
+        { id: "D1AE8792-9129-46E0-AEE7-2C3A81E91385", name: "Tame Impala", kind: "artist" },
+        { id: "F0D354AA-BA7E-49D2-8ABA-9A8250F5C852", name: "Everything Everywhere All at Once", kind: "movie", year: 2022 },
+        { id: "459C6C03-CF24-4479-90A4-030B371CF9EC", name: "Atlanta", kind: "tv_show", year: 2016 },
       ],
     },
   },

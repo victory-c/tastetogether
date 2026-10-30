@@ -1,300 +1,302 @@
-# Taste Together 产品需求文档
+# Taste Together Product Requirements Document
 
-版本：v0.2 · 日期：2026 年 10 月 30 日 · 产品负责人：Victor Chun
+Original planning document (translated from Chinese). The shipped product evolved beyond this spec — see README.md.
 
-状态：开发前需求稿。产品名暂定；本文件定义拟实现行为，不代表已有代码、数据接入或部署。
+Version: v0.2 · Date: October 30, 2026 · Product owner: Victor Chun
 
-## 1 产品定义与决策
+Status: pre-development requirements draft. The product name is provisional; this document defines the intended behavior and does not represent existing code, data integrations, or deployments.
 
-Taste Together 是一个有长期记忆的个人用餐 agent。用户独自使用时，它了解口味、记录吃过和想吃的餐厅；两个人约饭时，各自的 agent 将必要的偏好交给协调流程，结合地点、预算、时间和本次用餐目的，找出双方都能接受的餐厅。用户可以要求三个选择，也可以让系统直接选一家。
+## 1 Product definition and decisions
 
-产品核心承诺：帮助两个人找到适合双方、符合本次约束、尽量没有重复吃过的餐厅，并减少做决定的负担。推荐要能追溯到真实候选和已知事实。
+Taste Together is a personal dining agent with long-term memory. When used alone, it learns the user's tastes and records restaurants they have eaten at and want to try. When two people plan a meal together, each person's agent hands the necessary preferences to a coordination flow, which combines location, budget, time, and the purpose of this particular meal to find restaurants both people can accept. Users can ask for three options, or let the system pick one place directly.
 
-本次先验证一个两人用餐闭环。长期方向包括自动导入历史、可靠的排队与订位信息、时间优化。比赛版本不承诺实时排队预测。
+Core product promise: help two people find a restaurant that suits both of them, fits this occasion's constraints, and as far as possible is somewhere they have not already been — and reduce the burden of making the decision. Recommendations must be traceable to real candidates and known facts.
 
-**执行边界：只有在约一天内能够完成真实 Qloo 集成、公开部署和提交的情况下追这次比赛；不得牺牲上课、必要课程任务或其他已承诺提交。** 建议实际开发预算上限 8 个专注小时，另留提交缓冲；这不是已确认的个人可用时间。
+This round first validates a single two-person dining loop. Long-term directions include automatic history import, reliable queue and reservation information, and timing optimization. The competition version does not promise real-time queue prediction.
 
-## 2 用户问题与目标
+**Execution boundary: pursue this competition only if a real Qloo integration, public deployment, and submission can be completed within about one day; do not sacrifice classes, required coursework, or other committed submissions.** Suggested cap: 8 focused hours of actual development, plus a separate buffer for submission; this is not confirmed personal availability.
 
-| 问题 | 产品行为 | 成功表现 |
+## 2 User problems and goals
+
+| Problem | Product behavior | What success looks like |
 | --- | --- | --- |
-| 两人口味不同，来回讨论很久 | 同时评估两人的偏好与限制 | 双方看到共同选择，而不是一个人的榜单 |
-| 推荐总是去过的店 | 记录历史，提供双方都没去过的开关 | 不再反复推荐已被排除的店 |
-| 选择太多，难以拍板 | 三个选择或直接选一家 | 用户能直接采取行动 |
-| 临时约饭，预算和地点不合适 | 明确硬约束，在排序前过滤 | 不靠解释掩盖不符合条件的问题 |
-| 约会或商务会面不想久等 | 后续引入可核验的订位与等待数据 | 推荐时间有依据，未知信息明确标记 |
+| Two people have different tastes and go back and forth for a long time | Evaluate both people's preferences and constraints at the same time | Both see shared options, rather than one person's ranked list |
+| Recommendations are always places already visited | Record history; provide a "neither of us has been" toggle | Excluded places are no longer recommended again and again |
+| Too many options, hard to decide | Three options, or pick one directly | Users can act right away |
+| Last-minute plans where the budget and location don't fit | Make hard constraints explicit and filter before ranking | Explanations are never used to paper over results that fail the conditions |
+| Don't want a long wait for a date or business meeting | Later, introduce verifiable reservation and wait data | Recommended times are evidence-based; unknown information is clearly marked |
 
-首批目标用户：经常与固定朋友、伴侣或同学约饭的人；已有一些餐厅体验、希望尝试新店的人；选择困难但愿意授权系统做决定的人。
+First target users: people who often eat out with a regular friend, partner, or classmate; people who already have some restaurant experience and want to try new places; people who struggle to choose but are willing to let the system decide.
 
-第一版地域设为 Berkeley 及可配置周边范围，具体上线范围由 Qloo 实测覆盖决定。只支持一人或两人；三家指输出数量，不是三位参与者。
+The first version's region is Berkeley plus a configurable surrounding range; the actual launch area will be determined by Qloo's measured coverage. Only one or two people are supported; "three" refers to the number of results, not three participants.
 
-## 3 核心用户旅程
+## 3 Core user journeys
 
-### 3.1 建立个人记忆
+### 3.1 Building personal memory
 
-1. 用户建立个人档案，选择常活动区域、价格档位、明确不吃的菜系和偏好。
-2. 添加至少三个喜欢的餐厅或可解析兴趣实体。输入不足时先追问，不擅自补全口味。
-3. 手动添加吃过的餐厅，或粘贴一段文字记录。
-4. Agent 提取餐厅、喜欢程度、访问次数及重访意愿，展示待确认列表。
-5. 用户确认实体和记录后保存；不能将模型猜测直接写入记忆。
-6. 用户可以独自请求推荐，使用与两人模式相同的历史排除和决策强度。
+1. The user creates a personal profile, choosing their usual area, price level, cuisines they definitely won't eat, and preferences.
+2. The user adds at least three favorite restaurants or resolvable interest entities. When input is insufficient, the agent asks follow-up questions first rather than filling in tastes on its own.
+3. The user manually adds restaurants they have eaten at, or pastes a block of text notes.
+4. The agent extracts restaurants, how much they were liked, number of visits, and willingness to revisit, and shows a list pending confirmation.
+5. The user confirms entities and records before they are saved; model guesses must not be written directly into memory.
+6. The user can request recommendations alone, with the same history exclusion and decision strength as two-person mode.
 
-### 3.2 两人约饭
+### 3.2 Two-person meal
 
-1. 发起人创建约饭房间，选择区域、时间窗口、价格档位、用餐场景和决策模式。
-2. 发起人分享邀请链接；另一人在自己的浏览器加入并授权使用其档案参与这次匹配。
-3. 双方确认本次条件，包括“双方记录中都没去过”。任一方提出的硬约束不能由另一方静默取消。
-4. 系统分别取得双方的 Qloo 推荐，统一候选实体，过滤限制和历史，再生成共同排序。
-5. 展示三家推荐或一家首选，说明适合双方的原因、事实依据和未确认信息。
-6. 用户可以选定、换一家或明确放宽某个条件。选择餐厅不会自动产生订位或付款。
-7. 用餐后，用户主动确认实际到访和反馈，更新自己的记忆；不能把推荐曝光或点击当作到访。
+1. The host creates a meal room, choosing the area, time window, price level, dining occasion, and decision mode.
+2. The host shares an invite link; the other person joins in their own browser and authorizes their profile to be used in this match.
+3. Both people confirm this meal's conditions, including "neither of us has been, per our records". A hard constraint raised by either person cannot be silently cancelled by the other.
+4. The system fetches Qloo recommendations for each person separately, unifies candidate entities, filters by constraints and history, then produces a shared ranking.
+5. The system shows three recommendations or one top pick, explaining why it suits both people, the factual basis, and any unconfirmed information.
+6. Users can select one, try another, or explicitly relax a condition. Selecting a restaurant does not automatically create a reservation or payment.
+7. After the meal, each user actively confirms the actual visit and gives feedback, updating their own memory; recommendation impressions or clicks must not be treated as visits.
 
-### 3.3 评委体验
+### 3.3 Judge experience
 
-首页提供“一分钟体验”入口，加载两个明确标注为示例的虚构档案；通过真实 Qloo 请求完成推荐。示例历史与真实用户数据隔离，可一键重置。另提供双浏览器加入房间的测试步骤。
+The home page provides a "one-minute experience" entry that loads two fictional profiles clearly labeled as samples; recommendations are produced through real Qloo requests. Sample history is isolated from real user data and can be reset in one click. Test steps for joining a room from two browsers are also provided.
 
-## 4 范围与优先级
+## 4 Scope and priorities
 
-| 能力 | P0 比赛闭环 | P1 后续产品 | P2 探索 |
+| Capability | P0 competition loop | P1 later product | P2 exploration |
 | --- | --- | --- | --- |
-| 个人档案 | 偏好、禁忌、价格档位、区域 | 跨设备账户与档案管理 | 更丰富的跨领域兴趣导入 |
-| 用餐历史 | 手动添加、编辑、删除 | 自然语言批量导入与确认 | 授权连接外部历史来源 |
-| 单人推荐 | 真实 Qloo 候选与历史过滤 | 更细粒度个性化学习 | 长期探索策略 |
-| 两人匹配 | 邀请房间、两份独立档案、协调排序 | 固定饭搭子、共同心愿单 | 多人群体协调 |
-| 决策模式 | 三个选择、直接拍板、换一家 | 不同探索强度 | 自动跟进反馈 |
-| 新鲜度 | 排除任一方已去过的实体 | 近期重复惩罚、不同分店偏好 | 更复杂的探索与重访平衡 |
-| 时间 | 输入时间窗口；有营业数据才判断 | 可验证订位时段 | 历史及实时等待预测 |
-| 场景 | 朋友、约会、商务；仅作软偏好 | 有来源的噪音与环境标签 | 场景特定时间优化 |
-| 预订 | 外部已验证官网或地图链接 | 显示可靠可订时段 | 经用户确认后代订 |
+| Personal profile | Preferences, restrictions, price level, area | Cross-device accounts and profile management | Richer cross-domain interest import |
+| Dining history | Manual add, edit, delete | Natural-language bulk import with confirmation | Authorized connections to external history sources |
+| Solo recommendations | Real Qloo candidates with history filtering | Finer-grained personalized learning | Long-term exploration strategy |
+| Two-person matching | Invite room, two independent profiles, coordinated ranking | Regular dining buddies, shared wishlist | Multi-person group coordination |
+| Decision modes | Three options, just pick, try another | Different exploration strengths | Automatic feedback follow-up |
+| Novelty | Exclude entities either person has visited | Recent-repeat penalty, preferences across branches of a chain | More sophisticated explore/revisit balance |
+| Time | Input a time window; judge only when hours data exists | Verifiable reservation slots | Historical and real-time wait prediction |
+| Occasion | Friends, date, business; soft preference only | Sourced noise and ambience tags | Occasion-specific timing optimization |
+| Reservations | Verified external official website or map link | Show reliable bookable slots | Book on the user's behalf after user confirmation |
 
-P0 不做第三方账号授权导入、地图路线优化、自动订位、支付、原生移动端或多模型辩论。自然语言历史导入有价值，但手动记录已能证明核心体验，时间不足时优先后者。
+P0 does not include third-party account import, map route optimization, automatic reservations, payments, native mobile apps, or multi-model debate. Natural-language history import is valuable, but manual records are enough to prove the core experience; when time is short, prioritize manual records.
 
-## 5 功能需求与验收
+## 5 Functional requirements and acceptance
 
-### F01 个人档案与历史
+### F01 Personal profile and history
 
-- 每份档案必须有独立所有者；一个用户不能编辑另一个用户的档案。
-- 历史字段至少包括餐厅实体 ID、名称、地点、状态、评价及重访意愿；日期与次数允许未知。
-- 状态区分 visited、want_to_try、dismissed；“没去过”和“不喜欢”不能混用。
-- 未匹配的手动餐厅保留为 unresolved，提示用户补充地址或选择实体，不伪造 Qloo ID。
-- 同名店按实体 ID 和地址区分；同一家店的别名应归并，连锁不同分店默认独立。
-- 浏览器刷新后记录仍在；用户可以删除记录和重置示例档案。
+- Every profile must have an independent owner; one user cannot edit another user's profile.
+- History fields include at least the restaurant entity ID, name, location, status, rating, and revisit intent; date and visit count may be unknown.
+- Status distinguishes visited, want_to_try, and dismissed; "haven't been" and "didn't like" must not be conflated.
+- Manually entered restaurants that cannot be matched are kept as unresolved, and the user is prompted to add an address or select an entity; never fabricate a Qloo ID.
+- Restaurants with the same name are distinguished by entity ID and address; aliases of the same restaurant should be merged; different branches of a chain are treated as independent by default.
+- Records persist after a browser refresh; users can delete records and reset the sample profiles.
 
-验收：添加、刷新、编辑、删除各操作成功；一次推荐或拒绝操作不会被计为 visited；模糊匹配不自动确认。
+Acceptance: add, refresh, edit, and delete each succeed; a recommendation or a rejection is never counted as visited; fuzzy matches are never auto-confirmed.
 
-### F02 单人推荐与两人协调
+### F02 Solo recommendations and two-person coordination
 
-- 单人查询使用个人正向兴趣作为 Qloo 信号；禁忌、预算和历史由应用层显式处理。
-- 两人查询必须保留双方独立信号，不能仅拼接所有兴趣就声称已公平兼顾。
-- 协调流程有明确状态：等待第二人、待确认、查询中、待用户放宽、推荐完成、失败可重试。
-- 推荐运行绑定档案版本和约束版本。任一方修改条件后，旧结果标记过期，重新生成。
+- Solo queries use the person's positive interests as Qloo signals; restrictions, budget, and history are handled explicitly in the application layer.
+- Two-person queries must keep both people's signals independent; it is not acceptable to simply concatenate all interests and claim both people have been fairly accounted for.
+- The coordination flow has explicit states: waiting for the second person, pending confirmation, querying, waiting for the user to relax a condition, recommendations complete, and failed (retryable).
+- Each recommendation run is bound to profile versions and a constraint version. When either person changes a condition, old results are marked stale and regenerated.
 
-验收：改变 B 的输入时，系统重新查询或重新评估并记录新版本；结果可能不变，但必须确实使用 B 的新输入。
+Acceptance: when B's input changes, the system re-queries or re-evaluates and records a new version; the result may stay the same, but it must actually use B's new input.
 
-### F03 预算地点与时间
+### F03 Budget, location, and time
 
-- P0 用价格档位表示预算，避免把美元符号等级误当成精确人均消费。
-- 若用户输入“每人 30 美元”，保留原意并明确显示当前只能按价格档位筛选，不能保证最终账单。
-- 区域默认由双方确认的中心和范围确定；如有距离，必须标明直线距离或真实路线距离。
-- 时间以餐厅所在地时区保存和展示。营业信息缺失时显示“营业时间待确认”；不能写“届时营业”。
-- 有严格精确预算或严格营业要求却无可验证数据时，进入条件待确认，不输出“已满足全部条件”。
+- P0 represents budget as a price level, to avoid mistaking dollar-sign tiers for an exact per-person spend.
+- If the user enters "$30 per person", preserve the original meaning and clearly show that filtering can currently only use price levels and that the final bill cannot be guaranteed.
+- The area defaults to a center and range confirmed by both people; whenever a distance is shown, it must be labeled as straight-line distance or real route distance.
+- Times are stored and displayed in the restaurant's local time zone. When opening-hours information is missing, show "Hours unverified"; never say "open at that time".
+- When there is a strict exact budget or a strict opening-hours requirement but no verifiable data, enter the conditions-pending-confirmation state; never output "all conditions met".
 
-### F04 新鲜度与决策强度
+### F04 Novelty and decision strength
 
-- “双方记录中都没去过”默认开启，排除 visited_A 与 visited_B 的并集。
-- 有未解析历史时提示历史排除可能不完整，允许补充确认。
-- 三选模式最多显示三家，符合条件不足三家时如实显示数量，不凑数。
-- 拍板模式只突出一家首选；无需先浏览其余候选，保留换一家入口。
-- 换一家将该店加入本次排除集合；不默认写入永久不喜欢列表。可以记录本次拒绝原因。
-- 找不到合格候选时说明冲突，提供扩大范围、调整预算、允许重访等选择；必须经用户选择才放宽。
+- "Neither of us has been, per our records" is on by default and excludes the union of visited_A and visited_B.
+- When there is unresolved history, warn that history exclusion may be incomplete and allow the user to confirm additional entries.
+- Three-option mode shows at most three places; when fewer than three qualify, show the actual number honestly rather than padding the list.
+- Pick mode highlights only one top pick; the user does not need to browse the other candidates first, and a "try another" entry is kept.
+- Try another adds that place to this session's exclusion set; it is not written to a permanent dislike list by default. The reason for this rejection may be recorded.
+- When no qualifying candidates are found, explain the conflict and offer options such as expanding the area, adjusting the budget, or allowing revisits; a condition is relaxed only after the user chooses to do so.
 
-验收：A 去过的店、B 去过的店和本次已否决的店均不会在相关排除开启时重新出现；无结果不是失败后编造餐厅的理由。
+Acceptance: places A has visited, places B has visited, and places already rejected in this session never reappear while the relevant exclusions are on; having no results is never a reason to fabricate restaurants.
 
-### F05 推荐解释
+### F05 Recommendation explanations
 
-每张卡片包含名称、地址、预算信息及来源、对双方的匹配理由、新鲜度状态、时间信息状态和外部查看入口。可展开“为什么推荐”，区分三类依据：用户明确提供的信息、Qloo 的推荐信号、其他来源的餐厅事实。
+Each card includes the name, address, budget information and its source, match reasons for both people, novelty status, opening-hours information status, and an external link to view the place. An expandable "Why this pick" section distinguishes three kinds of evidence: information the users explicitly provided, Qloo's recommendation signals, and restaurant facts from other sources.
 
-LLM 只能解释结构化事实和排序结果，不能创造餐厅、菜品、营业时间、噪音水平或等位分钟数。若没有可解释的跨领域关系，只能说“基于你的兴趣信号推荐”，不能编造“喜欢某电影的人一定喜欢这家餐厅”。
+The LLM may only explain structured facts and the ranking result; it must not invent restaurants, dishes, opening hours, noise levels, or wait times in minutes. If there is no explainable cross-domain relationship, it may only say "recommended based on your interest signals", and must not fabricate claims such as "people who like a certain movie will definitely like this restaurant".
 
-### F06 反馈闭环
+### F06 Feedback loop
 
-用户确认到访后，选择喜欢、一般、不喜欢，并选择是否愿意重访。双方反馈独立；一人确认不能替另一人写到访记录。下次推荐读取更新后的记忆。
+After confirming a visit, the user chooses liked, neutral, or disliked, and whether they would revisit. Each person's feedback is independent; one person's confirmation cannot write a visit record for the other. The next recommendation reads the updated memory.
 
-## 6 协调与排序设计
+## 6 Coordination and ranking design
 
-逻辑角色为 Personal Agent A、Personal Agent B、Coordinator。第一版可以在一个服务端流程内实现，角色独立不要求三个独立模型或常驻 agent。
+The logical roles are Personal Agent A, Personal Agent B, and Coordinator. The first version can implement them inside a single server-side flow; keeping the roles separate does not require three separate models or long-running agents.
 
-执行顺序：解析请求 → 校验并确认缺失约束 → 获取两个档案授权视图 → 解析合法实体 → 分别调用 Qloo → 合并候选 → 硬过滤 → 双方排序 → 生成解释 → 校验输出 → 返回结果。工具不可用时返回明确状态。
+Execution order: parse the request → validate and confirm missing constraints → fetch both profiles' authorized views → resolve valid entities → call Qloo separately for each person → merge candidates → hard filter → rank for both people → generate explanations → validate output → return results. When a tool is unavailable, return an explicit status.
 
-P0 建议采用透明、可复现的排序规则，而非由 LLM 任意决定最终名单：
+For P0, a transparent, reproducible ranking rule is recommended, rather than letting the LLM arbitrarily decide the final list:
 
-1. 首先排除不满足地点、已知价格档位、禁忌、历史和本次否决的候选。
-2. 对双方都出现的候选，计算其在各自有效 Qloo 列表中的归一化名次效用 uA、uB。该值只是本次排序启发式，不是满意概率。
-3. 按 min(uA, uB) 降序，优先避免其中一人匹配很差；再按平均效用、已验证距离等打破平局。
-4. 只出现于一方列表的候选不等于另一方不喜欢。先检查是否可对同一候选补充评估；接口能力未验证时，不虚构另一方得分。共同证据不足则提示并请求调整条件。
-5. 为避免过窄列表导致假性无结果，可进行一次有界的候选扩展；保持全部硬约束。
+1. First exclude candidates that fail the location, known price level, restrictions, history, or this session's rejections.
+2. For candidates that appear for both people, compute the normalized rank utilities uA and uB within each person's valid Qloo list. This value is only a ranking heuristic for this run, not a probability of satisfaction.
+3. Sort by min(uA, uB) descending, so that a poor match for either person is avoided first; then break ties by average utility, verified distance, and so on.
+4. A candidate that appears only in one person's list does not mean the other person dislikes it. First check whether the same candidate can be additionally evaluated for the other person; while that API capability is unverified, do not invent a score for the other person. If shared evidence is insufficient, say so and ask the users to adjust the conditions.
+5. To avoid false "no results" caused by an overly narrow list, one bounded candidate expansion may be performed, keeping all hard constraints.
 
-此规则是待实测的产品方案，不是 Qloo 官方评分方法。原始 affinity 值能否跨查询直接比较需要核实，禁止未经验证直接求均值。Qloo 负责提供候选和兴趣关联；应用负责记忆、约束、公平排序和决策模式。
+This rule is a product proposal to be tested in practice, not Qloo's official scoring method. Whether raw affinity values are directly comparable across queries needs to be verified; averaging them without verification is prohibited. Qloo is responsible for providing candidates and interest associations; the application is responsible for memory, constraints, fair ranking, and decision modes.
 
-## 7 Qloo 及外部数据边界
+## 7 Qloo and external data boundaries
 
-官方公开文档支持基于兴趣实体与地点的推荐，也提供实体查找及餐厅相关示例。该文档证据不等于本项目的 key、额度、当地覆盖或全部字段已经可用。
+The official public documentation supports recommendations based on interest entities and location, and also provides entity lookup and restaurant-related examples. This documentation evidence does not mean that this project's key, quota, local coverage, or all fields are already available.
 
-| 数据 | 计划来源 | 当前状态 |
+| Data | Planned source | Current status |
 | --- | --- | --- |
-| 兴趣实体与推荐候选 | Qloo Entity Search 与 Insights | 文档能力已确认，真实请求未执行 |
-| 到访记录和反馈 | 用户主动输入与应用数据库 | 待实现，不由 Qloo 自动提供 |
-| 地址、价格档位、营业字段 | 实测 Qloo 返回值或授权地点数据 | 字段与覆盖待核验 |
-| 精确人均价格、菜单 | 餐厅官网或可靠授权来源 | P0 不保证 |
-| 可预订时段 | 有授权的订位数据服务 | 未选定、未接入 |
-| 历史繁忙程度与等待 | 有权使用的数据源 | 未验证可获得性 |
-| 实时排队 | 餐厅或排队服务授权接口 | 未验证，P0 不实现 |
+| Interest entities and recommendation candidates | Qloo Entity Search and Insights | Capability confirmed in documentation; no real request executed yet |
+| Visit records and feedback | User input and the application database | To be implemented; not provided automatically by Qloo |
+| Address, price level, opening-hours fields | Measured Qloo response values or licensed place data | Fields and coverage to be verified |
+| Exact per-person price, menu | Restaurant's official website or a reliable licensed source | Not guaranteed in P0 |
+| Bookable slots | A licensed reservation data service | Not selected, not integrated |
+| Historical busyness and waits | A data source we have the right to use | Availability not verified |
+| Real-time queue | A licensed API from the restaurant or a queue service | Not verified; not implemented in P0 |
 
-等待信息后续必须保存 source、observed_at、适用日期和时段、estimated_wait_minutes、confidence、expires_at。缺失值用 null，不能用 0。历史繁忙程度不能直接改名为排队时间；预测必须标明估计区间，过期信息不作实时依据。
+Wait information must later store source, observed_at, the applicable date and time slot, estimated_wait_minutes, confidence, and expires_at. Missing values use null, never 0. Historical busyness must not simply be relabeled as queue time; predictions must show an estimated range, and expired information must not be used as a real-time basis.
 
-P1 的时间优化以“餐厅 × 可行时段”为候选：先满足双方时间，再综合口味、路程和有证据的等待风险。如果没有可靠数据，只展示需确认的时间，不输出“最佳低排队时刻”。预订可用不代表保证零等待。
+P1 timing optimization treats "restaurant × feasible time slot" as the candidate: first satisfy both people's availability, then weigh taste, travel, and evidence-based wait risk. Without reliable data, only show times that need confirmation, and never output a "best low-wait time". Reservation availability does not guarantee zero wait.
 
-## 8 数据模型与接口契约
+## 8 Data model and interface contracts
 
-以下是应用内部契约，非 Qloo 端点定义。
+The following are internal application contracts, not Qloo endpoint definitions.
 
-| 对象 | 核心字段 |
+| Object | Core fields |
 | --- | --- |
-| Profile | id、owner_id、region、positive_entity_ids、excluded_tags、price_preference、version |
-| DiningMemory | id、profile_id、place_id 或 unresolved_name、address、status、visit_date、visit_count、rating、revisit_intent、source |
-| MatchSession | id、participant_ids 最多 2、constraints、decision_mode、novelty_policy、consent_status、version、expires_at |
-| RecommendationRun | id、session_id、profile_versions、constraint_version、provider_request_refs、candidate_ids、ranking_evidence、result、created_at |
-| VenueEvidence | place_id、field、value、source、observed_at、confidence、expires_at |
-| Feedback | run_id、profile_id、place_id、selected 或 dismissed 或 visited、rating、reason、created_at |
+| Profile | id, owner_id, region, positive_entity_ids, excluded_tags, price_preference, version |
+| DiningMemory | id, profile_id, place_id or unresolved_name, address, status, visit_date, visit_count, rating, revisit_intent, source |
+| MatchSession | id, participant_ids (at most 2), constraints, decision_mode, novelty_policy, consent_status, version, expires_at |
+| RecommendationRun | id, session_id, profile_versions, constraint_version, provider_request_refs, candidate_ids, ranking_evidence, result, created_at |
+| VenueEvidence | place_id, field, value, source, observed_at, confidence, expires_at |
+| Feedback | run_id, profile_id, place_id, selected or dismissed or visited, rating, reason, created_at |
 
-建议内部接口：POST /api/profiles；POST /api/memories；POST /api/sessions；POST /api/sessions/{id}/join；PATCH /api/sessions/{id}/constraints；POST /api/recommendations；POST /api/feedback。记录编辑删除必须带所有权校验。重试推荐用幂等键防止重复运行。
+Suggested internal APIs: POST /api/profiles; POST /api/memories; POST /api/sessions; POST /api/sessions/{id}/join; PATCH /api/sessions/{id}/constraints; POST /api/recommendations; POST /api/feedback. Editing and deleting records must include ownership checks. Recommendation retries use an idempotency key to prevent duplicate runs.
 
-结果结构必须包含 status、候选列表、推荐证据、未知字段、需用户确认的条件与数据来源。status 至少支持 success、needs_clarification、no_match、provider_unavailable；前端不能将后三者渲染成成功推荐。
+The result structure must include the status, the candidate list, recommendation evidence, unknown fields, conditions requiring user confirmation, and data sources. status must support at least success, needs_clarification, no_match, and provider_unavailable; the front end must never render the last three as a successful recommendation.
 
-## 9 页面与交互
+## 9 Pages and interaction
 
-1. 首页：产品一句话、单人开始、邀请朋友、示例体验。
-2. 我的口味：偏好和历史列表，新增餐厅、待确认实体、编辑与删除。
-3. 约饭房间：参与者状态、共同条件、决策强度、生成按钮。
-4. 推荐结果：一家主卡或三张同等级卡片、理由、未知信息、换一家、确认选择。
-5. 用餐反馈：是否实际到访、评价、重访意愿。
+1. Home: one-line product pitch, start solo, invite a friend, sample experience.
+2. My Taste: preferences and history list, add restaurants, entities pending confirmation, edit and delete.
+3. Meal room: participant status, shared conditions, decision strength, generate button.
+4. Recommendation results: one main card or three equal-weight cards, reasons, unknown information, try another, confirm selection.
+5. Meal feedback: whether the place was actually visited, rating, revisit intent.
 
-**语言硬性要求：产品所有面向用户的内容必须使用英文，不是英文优先，也不随浏览器语言自动切换。** PRD 中的中文用于开发沟通，不能原样复制到产品。
+**Hard language requirement: all user-facing product content must be in English — not "English first", and not switched automatically based on browser language.** The Chinese in the original PRD was for development communication and must not be copied verbatim into the product.
 
-- 覆盖所有页面、导航、按钮、表单、占位符、引导、邀请、通知、加载状态、空状态、错误提示、帮助及无障碍标签。
-- Agent 的追问、推荐理由、偏好摘要、历史导入确认、反馈和降级模板必须使用英文；用户以中文输入时，系统生成的回复仍使用英文。
-- 示例档案、演示数据说明、公开 README、部署与测试说明、Devpost 材料均使用英文。
-- 用户原始输入及餐厅正式名称保留原文以确保准确；产品生成的解释使用英文，不能臆造餐厅英文名称。
-- 模型提示词明确要求 English output；前端集中管理英文文案，禁止将上游原始错误直接显示给用户。
-- 发布前检查完整正常流程和错误分支，不得残留面向用户的中文占位文案。
+- This covers all pages, navigation, buttons, forms, placeholders, onboarding, invites, notifications, loading states, empty states, error messages, help, and accessibility labels.
+- The agent's follow-up questions, recommendation reasons, preference summaries, history-import confirmations, feedback, and fallback templates must be in English; when the user types in Chinese, system-generated replies are still in English.
+- Sample profiles, demo data descriptions, the public README, deployment and testing instructions, and Devpost materials are all in English.
+- Users' original input and restaurants' official names are kept in their original language for accuracy; product-generated explanations are in English, and English names for restaurants must not be invented.
+- Model prompts explicitly require English output; the front end manages English copy centrally, and raw upstream errors must never be shown directly to users.
+- Before release, check the full happy path and the error branches; no user-facing Chinese placeholder copy may remain.
 
-建议英文标签：Show me 3 options、Pick one for us、Try another、Exclude places either of us has visited、Hours unverified、Wait time unavailable。
+Suggested English labels: Show me 3 options, Pick one for us, Try another, Exclude places either of us has visited, Hours unverified, Wait time unavailable.
 
-移动端可使用，不要求原生应用。加载时显示真实阶段，不能伪造 agent 对话来制造工作量。
+The product must be usable on mobile; a native app is not required. While loading, show the real stages; do not fake agent conversations to manufacture the appearance of work.
 
-## 10 工程方案与安全要求
+## 10 Engineering approach and security requirements
 
-建议用一个前后端一体的 Web 项目、一个持久数据库、服务端 Qloo 适配器和一个 LLM 适配器。选用开发者最熟悉且可部署的技术栈；具体框架及托管平台属于实现选择，本 PRD 不声称现有项目已经具备这些能力。
+Suggested: one full-stack web project, one persistent database, a server-side Qloo adapter, and an LLM adapter. Choose the stack the developer knows best and can deploy; the specific framework and hosting platform are implementation choices, and this PRD does not claim that any existing project already has these capabilities.
 
-匿名用户可通过服务端签发的安全会话拥有档案，不必第一天做完整注册系统。邀请 token 仅授权加入指定房间，不授权读取双方所有历史。房间默认到期、可撤销；公开示例只含虚构资料。
+Anonymous users can own profiles through a secure, server-issued session, so a full registration system is not needed on day one. An invite token only authorizes joining the specified room; it does not authorize reading either person's full history. Rooms expire by default and can be revoked; public samples contain only fictional data.
 
-- API key 仅服务端使用，不进入浏览器包、日志、截图或公共仓库。
-- 对档案、记录和房间执行对象级访问控制，不能只依赖隐藏 URL。
-- 共享输出使用必要的偏好摘要；不展示对方完整消费历史或原始导入文本。
-- 外部餐厅描述和用户记录均视为数据，不得成为工具执行指令。
-- 设置超时、有界重试、速率限制和总预算限制，防止公开 demo 耗尽配额。
-- 缓存和存储 Qloo 返回数据前核验适用条款；公开源码不等于可再分发第三方数据。
-- Qloo 失败时显示可重试错误；可展示明确标注的历史结果，但不能假装刚完成实时查询。
-- LLM 解释失败可用事实模板降级；不能移除 Qloo 后仍冒称 Qloo 驱动。
+- API keys are used only on the server; they never go into the browser bundle, logs, screenshots, or the public repository.
+- Enforce object-level access control on profiles, records, and rooms; do not rely solely on hidden URLs.
+- Shared output uses only the necessary preference summary; never show the other person's full spending history or raw imported text.
+- External restaurant descriptions and user records are treated as data and must never become tool-execution instructions.
+- Set timeouts, bounded retries, rate limits, and an overall budget limit to keep the public demo from exhausting its quota.
+- Verify the applicable terms before caching or storing Qloo response data; open-sourcing the code does not mean third-party data may be redistributed.
+- When Qloo fails, show a retryable error; clearly labeled past results may be shown, but never pretend a live query just completed.
+- When the LLM explanation fails, fall back to factual templates; never remove Qloo and still claim to be Qloo-powered.
 
-## 11 验收标准与测量
+## 11 Acceptance criteria and measurement
 
-P0 必须通过：
+P0 must pass:
 
-1. 新用户能在无私人审批的公开网页完成示例体验；推荐实际调用 Qloo。
-2. 单人添加历史后刷新仍可读取，再次查询能排除该店。
-3. 两个独立浏览器可以加入同一房间，分别使用和保护各自档案。
-4. 双方历史并集排除、禁忌、地点及可验证预算限制生效。
-5. 三选模式和拍板模式正常，换一家不重复本次否决餐厅。
-6. 不足三家、零候选、未解析实体、无营业信息、API 超时均有诚实的状态处理。
-7. 更改约束后旧结果过期；一方无法越权修改另一方档案。
-8. 结果中的名称、地址和理由事实可追溯；没有编造排队或消费金额。
-9. 用户确认到访后才写入历史，双方反馈独立。
-10. 无痕窗口访问 demo 与公开 repo，README 能指导从干净环境运行。
-11. 在英文及中文浏览器环境下检查单人、双人、示例、空状态和失败流程：所有系统生成的用户可见内容均为英文；中文用户输入不会改变输出语言。
+1. A new user can complete the sample experience on a public web page with no private approval; recommendations actually call Qloo.
+2. After a solo user adds history, it is still readable after a refresh, and querying again excludes that place.
+3. Two independent browsers can join the same room, each using and protecting its own profile.
+4. Exclusion of the union of both histories, restrictions, location, and verifiable budget limits all take effect.
+5. Three-option mode and pick mode work; try another never repeats a restaurant rejected in this session.
+6. Fewer than three results, zero candidates, unresolved entities, missing opening-hours information, and API timeouts all have honest status handling.
+7. After constraints change, old results become stale; one person cannot modify the other person's profile without authorization.
+8. Names, addresses, and the facts in the reasons are traceable; no queue times or spending amounts are fabricated.
+9. History is written only after the user confirms a visit; each person's feedback is independent.
+10. The demo and the public repo can be accessed from an incognito window, and the README can guide running the project from a clean environment.
+11. Check the solo, two-person, sample, empty-state, and failure flows under both English and Chinese browser settings: all system-generated user-visible content is in English, and Chinese user input does not change the output language.
 
-测试使用一组可控模拟响应验证约束和错误分支，再用真实 Qloo 做端到端冒烟测试。模拟响应必须仅用于测试，不能充当比赛 demo 的真实数据。增加双用户权限测试和发布后密钥泄漏检查。
+Testing uses a set of controlled mock responses to verify constraints and error branches, then uses real Qloo for end-to-end smoke tests. Mock responses must be used only for tests and must never serve as real data in the competition demo. Add two-user permission tests and a post-release key-leak check.
 
-暂定性能目标：正常请求 30 秒内完成；超过上限给可重试状态。实际延迟和配额限制在首次实测后修订。
+Provisional performance target: normal requests complete within 30 seconds; beyond that limit, show a retryable state. Actual latency and quota limits will be revised after the first real measurements.
 
-产品指标：从加入房间到选择餐厅的时间、双方确认率、首选接受率、换一家次数、因历史重复被否决的比例、成功获取真实 Qloo 结果的比例。尚无用户基线，不声称这些指标已改善。
+Product metrics: time from joining a room to selecting a restaurant, two-person confirmation rate, top-pick acceptance rate, number of "try another" clicks, share of rejections caused by repeated history, and share of runs that successfully obtain real Qloo results. There is no user baseline yet, so do not claim these metrics have improved.
 
-演示差异建议：固定相同地点预算，分别使用 A、B、A+B 的档案；展示共同结果及排除历史的变化。该对照用于证明输入生效，不足以宣称已科学证明优于所有 LLM 推荐。
+Suggested demo contrast: fix the same location and budget, then use A's, B's, and A+B's profiles in turn; show the shared results and how history exclusion changes them. This comparison demonstrates that the inputs take effect; it is not sufficient to claim the product has been scientifically proven better than all LLM recommendations.
 
-## 12 一天内的实施与停止条件
+## 12 One-day implementation plan and stop conditions
 
-| 阶段 | 时间预算 | 交付与门槛 |
+| Phase | Time budget | Deliverables and gates |
 | --- | --- | --- |
-| G0 可行性验证 | 0–60 分钟 | 取得 key、完成真实实体查找和当地餐厅推荐；确认字段、额度、部署路径 |
-| G1 单人闭环 | 1–3 小时 | 档案、历史持久化、真实候选、硬过滤、个人结果 |
-| G2 双人协调 | 3–5 小时 | 邀请加入、双方约束、共同排序、三选与拍板、反馈 |
-| G3 公开部署 | 5–6.5 小时 | 外部部署、环境变量、示例档案、无痕窗口测试 |
-| G4 交付与提交 | 6.5–8 小时 | 权限及核心验收、README、许可证、英文描述、Devpost 提交 |
+| G0 Feasibility check | 0–60 minutes | Obtain the key; complete a real entity lookup and a local restaurant recommendation; confirm fields, quota, and the deployment path |
+| G1 Solo loop | 1–3 hours | Profile, history persistence, real candidates, hard filtering, personal results |
+| G2 Two-person coordination | 3–5 hours | Invite and join, both people's constraints, shared ranking, three options and pick, feedback |
+| G3 Public deployment | 5–6.5 hours | External deployment, environment variables, sample profiles, incognito-window testing |
+| G4 Delivery and submission | 6.5–8 hours | Permission and core acceptance checks, README, license, English description, Devpost submission |
 
-G0 如果 key 未到、当地候选不足或接口无法支撑核心查询，则停止这次比赛冲刺；可以继续保留产品想法，不用假集成赶交。G1 明显超时则先砍自然语言导入与视觉装饰；不能砍真实 Qloo、双人条件、历史排除和公开可用性来宣称完成原定产品。
+At G0, if the key has not arrived, local candidates are insufficient, or the API cannot support the core queries, stop this competition sprint; the product idea can be kept, but do not rush a submission with a fake integration. If G1 clearly overruns, first cut natural-language import and visual polish; never cut real Qloo, two-person conditions, history exclusion, or public availability and then claim the original product is complete.
 
-项目复用状态：本轮未检查任何现有仓库，因此不认定已有 Qloo 集成、登录、数据库或可直接发布项目。开发开始时最多花 20 分钟核验拟复用仓库的启动方式、依赖、授权和部署状态；只复用能运行且有权公开的部分，否则用熟悉的小型脚手架。原有代码与比赛期间新增功能需分别说明。
+Project reuse status: no existing repository was inspected in this round, so do not assume there is an existing Qloo integration, login, database, or directly publishable project. At the start of development, spend at most 20 minutes verifying the startup method, dependencies, licensing, and deployment status of any repository proposed for reuse; reuse only the parts that run and that we have the right to make public, otherwise use a familiar small scaffold. Pre-existing code and features added during the competition must be described separately.
 
-## 13 构建部署仓库与提交清单
+## 13 Build, deployment, repository, and submission checklist
 
-### 构建
+### Build
 
-1. 从公开可用的官方文档确定 key 对应的 API host、认证方式和实体参数，不照抄未经实测的 SDK 默认地址。
-2. 跑一个真实最小请求，记录脱敏字段结构，选定实际可用的候选和过滤实现。
-3. 建立环境变量示例，先完成从输入到 Qloo 到页面的纵向链路，再增加数据库和两人房间。
-4. 为硬过滤、双方排序和来源校验编写独立函数；LLM 负责意图解析与受约束解释。
-5. 按本 PRD 验收，保留可重复的双用户测试步骤。
+1. Determine the API host, authentication method, and entity parameters for the key from publicly available official documentation; do not copy untested SDK default addresses.
+2. Run one real minimal request, record the field structure (redacted), and choose candidate and filtering implementations that actually work.
+3. Create an example environment-variable file; first complete the vertical slice from input to Qloo to page, then add the database and two-person rooms.
+4. Write independent functions for hard filtering, two-person ranking, and source validation; the LLM is responsible for intent parsing and constrained explanations.
+5. Run acceptance against this PRD, and keep repeatable two-user test steps.
 
-### 部署
+### Deployment
 
-1. 连接具备服务端运行能力的托管环境，配置数据库和服务端密钥。
-2. 执行数据库迁移、构建检查和部署，启用 TLS 和基本限流。
-3. 用未登录浏览器测试示例，用两个浏览器测试邀请；检查生产环境确实调用 Qloo。
-4. 设置错误监控和费用上限，确认不会因配额耗尽让评审期间完全失效。
+1. Connect a hosting environment with server-side runtime capability; configure the database and server-side secrets.
+2. Run database migrations, build checks, and the deployment; enable TLS and basic rate limiting.
+3. Test the sample with a logged-out browser and the invite flow with two browsers; check that production really calls Qloo.
+4. Set up error monitoring and spending caps; confirm that quota exhaustion will not take the app down entirely during judging.
 
-### 公共仓库
+### Public repository
 
-1. 检查无密钥、私人记录和不可公开资产后公开代码。
-2. 添加可识别的开源 LICENSE；MIT 可作候选，但须与复用依赖和资产授权兼容。
-3. README 包含产品概述、架构、真实 Qloo 使用点、环境变量、安装运行、数据库初始化、部署、测试和已知限制。
-4. 放入 .env.example、依赖锁文件、示例数据生成方式及所有必要源文件；不要提交实际 .env。
-5. 在仓库 About 设置 demo 链接，确认许可证能被识别。记录提交版本。
+1. Publish the code after checking there are no secrets, private records, or non-public assets.
+2. Add a recognizable open-source LICENSE; MIT is a candidate, but it must be compatible with the licenses of reused dependencies and assets.
+3. The README includes a product overview, architecture, where Qloo is really used, environment variables, installing and running, database initialization, deployment, testing, and known limitations.
+4. Include .env.example, the dependency lockfile, how sample data is generated, and all necessary source files; do not commit the actual .env.
+5. Set the demo link in the repository's About section and confirm the license is detected. Record the submitted version.
 
 ### Devpost
 
-1. 确认报名及提交入口；填写英文产品简介、功能、Qloo 的实质作用、技术实现和限制。
-2. 添加可公开访问的功能 demo URL 和公共仓库 URL；核验两者无私人访问限制。
-3. 说明示例体验及两人测试方法；如果复用旧项目，明确这次新增内容。
-4. 根据用户提供的活动页面，视频不是必需项；不为拍视频挤占核心验证时间。
-5. 在 2026 年 10 月 30 日 20:45 PDT 截止前提交，建议内部目标 19:45 PDT。以最终活动页面显示为准。
-6. 确认已提交而非仅保存草稿，保存提交链接。保持服务至少覆盖官方评审期；若入围，另行确认出席和准备安排。
+1. Confirm registration and the submission entry; fill in the English product summary, features, Qloo's substantive role, technical implementation, and limitations.
+2. Add a publicly accessible working demo URL and the public repository URL; verify that neither has private access restrictions.
+3. Explain the sample experience and how to test with two people; if an old project is reused, clearly state what is new this time.
+4. According to the event page provided by the user, a video is not required; do not let filming a video eat into core validation time.
+5. Submit before the deadline of 20:45 PDT on October 30, 2026; the suggested internal target is 19:45 PDT. The final event page is authoritative.
+6. Confirm the entry is submitted, not just saved as a draft, and save the submission link. Keep the service running at least through the official judging period; if shortlisted, separately confirm attendance and preparation.
 
-## 14 尚待验证的决定
+## 14 Decisions still to be verified
 
-- Qloo key 是否已取得、真实请求配额及可用 host。
-- Berkeley 餐厅覆盖、价格和营业字段的可用性；共同候选过少时是否支持补充评估。
-- 可以合法公开且能快速部署的现有项目是哪一个。
-- 是否拥有可靠等待或订位数据的访问权；在验证前不承诺上线。
-- 真实可用开发时段是否足够且不冲突课程及其他提交。
+- Whether the Qloo key has been obtained, the real request quota, and the usable host.
+- Berkeley restaurant coverage and the availability of price and opening-hours fields; whether supplementary evaluation is supported when there are too few shared candidates.
+- Which existing project can legally be made public and deployed quickly.
+- Whether we have access to reliable wait or reservation data; do not promise to launch this before it is verified.
+- Whether the development time actually available is sufficient and does not conflict with classes or other submissions.
 
-## 15 依据与核验记录
+## 15 Sources and verification log
 
-本稿以本次对话中 Victor 的产品描述为需求依据。没有读取或修改 Notion tracker，也未查看现有项目仓库、取得 API key 或执行 Qloo 请求。
+This draft uses Victor's product description in this conversation as the basis for its requirements. The Notion tracker was not read or modified; no existing project repository was inspected, no API key was obtained, and no Qloo request was executed.
 
-- 官方比赛规则：https://qloo.devpost.com/rules 。2026 年 10 月 29 日读取，截止时间为 10 月 30 日 23:45 EDT，即 20:45 PDT；包含真实 Qloo 集成、公共开源仓库、demo、描述和英文材料要求。其旧项目条款存在文本排版异常，复用时应明确新增贡献，必要时向主办方核实。
-- 用户提供的活动要求原文：公开外部部署、许可证可见、视频不必需；本稿采用这些更明确的交付条件。
-- 官方 Qloo API 概述：https://github.com/qloo/docs-public/blob/main/reference/api-overview.md 。支持兴趣与地点等参数化推荐和实体查找。
-- 官方餐厅示例：https://github.com/qloo/docs-public/blob/main/recipes/recipes.md 。包含按兴趣实体和地点查询餐厅的示例。
-- 官方 Insights 说明：https://github.com/qloo/docs-public/blob/main/reference/insights-api-deep-dive.md 。说明价格等级等参数；具体 key 和响应字段仍须实测。
+- Official competition rules: https://qloo.devpost.com/rules — read on October 29, 2026. The deadline is October 30, 23:45 EDT, i.e., 20:45 PDT; the rules include requirements for a real Qloo integration, a public open-source repository, a demo, a description, and English materials. The clause about pre-existing projects has a text-formatting anomaly; when reusing a project, clearly state the new contributions and, if necessary, confirm with the organizers.
+- Original event requirements provided by the user: public external deployment, a visible license, and no required video; this draft adopts these more explicit delivery conditions.
+- Official Qloo API overview: https://github.com/qloo/docs-public/blob/main/reference/api-overview.md — supports parameterized recommendations by interests, location, and more, as well as entity lookup.
+- Official restaurant recipes: https://github.com/qloo/docs-public/blob/main/recipes/recipes.md — includes examples of querying restaurants by interest entities and location.
+- Official Insights deep dive: https://github.com/qloo/docs-public/blob/main/reference/insights-api-deep-dive.md — describes parameters such as price level; the specific key and response fields still need to be tested for real.
 
-所有技术实现、优先级、时间预算和排序方式均为本 PRD 的建议设计，不是已完成状态或主办方保证。
+All technical implementation choices, priorities, time budgets, and ranking methods in this PRD are proposed designs, not completed status or guarantees from the organizers.

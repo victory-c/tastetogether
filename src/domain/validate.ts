@@ -11,7 +11,7 @@ const DISALLOWED_PATTERNS: RegExp[] = [
   /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/i,
   /\b(?:quiet|noisy|loud|intimate|crowded|busy)\b/i, // ambience we don't have data for
   /\b(?:reservations?|walk-?ins?)\b/i,
-  /[一-鿿]/, // product output must be English
+  /[\u4e00-\u9fff]/, // product output must be English
 ];
 
 export interface ReasonCheckInput {

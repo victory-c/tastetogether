@@ -3,7 +3,7 @@ import "server-only";
 import { interpretVibe, keywordVibe, llmAvailable, LLM_MODEL, narrate } from "../agent/llm";
 import { entitiesOf, qlooGet, QlooError, type CallStats } from "../qloo/client";
 import type { QlooCompareResponse, QlooCompareTag, QlooEntity, QlooInsightsResponse } from "../qloo/types";
-import { openStatus, planTime } from "./hours";
+import { dinnerBeforeDoors, openStatus, planTime } from "./hours";
 import { OCCASIONS } from "./occasions";
 import { rankDuo, type PoolItem } from "./rank";
 import type { Driver, MatchEvent, MatchRequest, Person, PersonFit, Pick, TasteDna, TasteTag } from "./types";
@@ -95,6 +95,15 @@ function drivers(e: QlooEntity | undefined, person: Person, base: Map<string, nu
     .map((d) => ({ name: d.name, kind: d.kind, share: d.share }));
 }
 
+/** For "Before a show" the performer is a shared taste signal for both people and the venue is the meeting point. */
+function withShow(req: MatchRequest): MatchRequest {
+  if (req.occasion !== "show" || !req.show) return req;
+  const perf = req.show.performer;
+  const add = (p: Person): Person =>
+    perf && !p.interests.some((i) => i.id === perf.id) ? { ...p, interests: [...p.interests, perf] } : p;
+  return { ...req, a: add(req.a), b: add(req.b) };
+}
+
 function signalOf(p: Person) {
   return p.interests.map((i) => i.id).join(",");
 }
@@ -106,11 +115,12 @@ function now() {
 /**
  * The TasteTogether agent run. Each yielded event is a real step of the pipeline; the UI renders them as they arrive.
  */
-export async function* runMatch(req: MatchRequest): AsyncGenerator<MatchEvent> {
+export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent> {
   const t0 = now();
   const stats: CallStats = { calls: 0, cached: 0 };
+  const req = withShow(input);
   const occ = OCCASIONS[req.occasion];
-  const when = planTime(req.occasion);
+  const when = planTime(req.occasion, new Date(), req.show ? dinnerBeforeDoors(req.show.doors) : undefined);
 
   if (req.a.interests.length === 0 || req.b.interests.length === 0) {
     yield { type: "error", status: "needs_clarification", message: "Each person needs at least one thing they love." };
@@ -123,7 +133,7 @@ export async function* runMatch(req: MatchRequest): AsyncGenerator<MatchEvent> {
     const tDna = now();
     const dnaPromise = qlooGet<QlooCompareResponse>(
       "/v2/analysis/compare",
-      { "a.signal.interests.entities": signalOf(req.a), "b.signal.interests.entities": signalOf(req.b) },
+      { "a.signal.interests.entities": signalOf(input.a), "b.signal.interests.entities": signalOf(input.b) },
       stats,
     );
 
@@ -201,7 +211,7 @@ export async function* runMatch(req: MatchRequest): AsyncGenerator<MatchEvent> {
     }
 
     // 2. Scout candidates near the meeting point from three angles: each person's taste and a no-taste baseline.
-    yield { type: "step", id: "scout", label: `Scouting ${req.area.label} through each person's taste`, status: "running" };
+    yield { type: "step", id: "scout", label: `Scouting ${req.show ? `around ${req.area.label}` : req.area.label} through each person's taste`, status: "running" };
     const tScout = now();
     let radius = req.area.radius;
     let relaxed: string | undefined;
@@ -239,7 +249,7 @@ export async function* runMatch(req: MatchRequest): AsyncGenerator<MatchEvent> {
     yield {
       type: "step",
       id: "scout",
-      label: `Scouting ${req.area.label} through each person's taste`,
+      label: `Scouting ${req.show ? `around ${req.area.label}` : req.area.label} through each person's taste`,
       status: "done",
       detail: `${pool.length} ${req.occasion === "coffee" ? "cafés" : "restaurants"} in the shared pool${visited.size ? ` · skipped ${visited.size} you've been to` : ""}${relaxed ? " · search widened" : ""}`,
       ms: Math.round(now() - tScout),

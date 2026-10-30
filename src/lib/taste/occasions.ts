@@ -36,6 +36,14 @@ export const OCCASIONS: Record<
     boost: ["Work dinner", "Business meeting", "Quiet", "Upscale", "Professional", "Wi fi", "Reservations"],
     penalty: ["Loud", "Late night food"],
   },
+  show: {
+    label: "Before a show",
+    emoji: "🎟️",
+    blurb: "Dinner near the venue, before doors",
+    allow: (g) => isMeal(g),
+    boost: ["Pre theater", "Quick bite", "Lively", "Casual", "Fast service", "Groups of friends", "Date night"],
+    penalty: ["Reservations required", "Tasting menu"],
+  },
   coffee: {
     label: "Coffee or dessert",
     emoji: "☕",
@@ -74,3 +82,12 @@ export const AREAS: Area[] = [
 ];
 
 export const DEFAULT_AREA: Area = AREAS[0]!;
+
+export const VENUES: Area[] = [
+  { id: "greek-theatre", label: "the Greek Theatre", lat: 37.8735, lon: -122.2541, radius: 1800 },
+  { id: "uc-theatre", label: "The UC Theatre", lat: 37.8718, lon: -122.2698, radius: 1300 },
+  { id: "freight", label: "Freight & Salvage", lat: 37.8712, lon: -122.2693, radius: 1300 },
+  { id: "fox-oakland", label: "the Fox Theater, Oakland", lat: 37.8079, lon: -122.27, radius: 1400 },
+];
+
+export const DEFAULT_VENUE: Area = VENUES[0]!;

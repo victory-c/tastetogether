@@ -17,7 +17,7 @@ export interface Person {
   beenTo?: { id: string; name: string }[];
 }
 
-export type Occasion = "date" | "friends" | "business" | "coffee";
+export type Occasion = "date" | "friends" | "business" | "coffee" | "show";
 export type DecisionMode = "three" | "one";
 
 export interface Area {
@@ -38,6 +38,8 @@ export interface MatchRequest {
   vibe?: string;
   /** Places rejected in this session via "Try another". */
   exclude?: string[];
+  /** "Before a show": the venue is the meeting point and doors time sets the dinner window. */
+  show?: { venueId: string; venueLabel: string; doors: number; performer?: Interest };
 }
 
 export interface TasteTag {

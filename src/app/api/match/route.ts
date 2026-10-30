@@ -3,7 +3,7 @@ import { z } from "zod";
 import { isQlooConfigured } from "@/lib/qloo/client";
 import { allow, underDailyBudget } from "@/lib/server/rate-limit";
 import { runMatch } from "@/lib/taste/engine";
-import { AREAS, DEFAULT_AREA } from "@/lib/taste/occasions";
+import { AREAS, DEFAULT_AREA, VENUES } from "@/lib/taste/occasions";
 import type { MatchEvent, MatchRequest } from "@/lib/taste/types";
 
 export const maxDuration = 60;
@@ -25,13 +25,20 @@ const person = z.object({
 const schema = z.object({
   a: person,
   b: person,
-  occasion: z.enum(["date", "friends", "business", "coffee"]),
+  occasion: z.enum(["date", "friends", "business", "coffee", "show"]),
   priceMax: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).nullable(),
   areaId: z.string().optional(),
   near: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).optional(),
   mode: z.enum(["three", "one"]),
   vibe: z.string().max(300).optional(),
   exclude: z.array(z.string().regex(/^[0-9A-Fa-f-]{36}$/)).max(60).optional(),
+  show: z
+    .object({
+      venueId: z.string(),
+      doors: z.number().int().min(15 * 60).max(23 * 60),
+      performer: interest.optional(),
+    })
+    .optional(),
 });
 
 function line(event: MatchEvent) {
@@ -50,11 +57,18 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return Response.json({ error: "We couldn't read that request. Add at least one favorite for each person." }, { status: 400 });
   }
-  const { areaId, near, ...rest } = parsed.data;
-  const area = near
-    ? { id: "near-me", label: "your meeting point", lat: near.lat, lon: near.lon, radius: 1800 }
-    : (AREAS.find((a) => a.id === areaId) ?? DEFAULT_AREA);
-  const req: MatchRequest = { ...rest, area };
+  const { areaId, near, show, ...rest } = parsed.data;
+  const venue = show && rest.occasion === "show" ? VENUES.find((v) => v.id === show.venueId) : undefined;
+  const area = venue
+    ? venue
+    : near
+      ? { id: "near-me", label: "your meeting point", lat: near.lat, lon: near.lon, radius: 1800 }
+      : (AREAS.find((a) => a.id === areaId) ?? DEFAULT_AREA);
+  const req: MatchRequest = {
+    ...rest,
+    area,
+    show: venue && show ? { venueId: venue.id, venueLabel: venue.label, doors: show.doors, performer: show.performer } : undefined,
+  };
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

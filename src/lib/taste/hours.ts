@@ -38,7 +38,14 @@ const TARGET_MINUTES: Record<Occasion, number> = {
   friends: 19 * 60,
   business: 12 * 60 + 30,
   coffee: 15 * 60,
+  show: 17 * 60 + 45,
 };
+
+/** Dinner before a show starts about 1h45m before doors, rounded down to the quarter hour. */
+export function dinnerBeforeDoors(doors: number) {
+  const t = doors - 105;
+  return t - (t % 15);
+}
 
 export interface PlanTime {
   day: string;
@@ -51,9 +58,9 @@ export interface PlanTime {
  * The moment we plan for: the occasion's usual time today, or tomorrow if that time has (nearly) passed.
  * Judges may open the app late at night, so hours are never checked against "now".
  */
-export function planTime(occasion: Occasion, now = new Date()): PlanTime {
+export function planTime(occasion: Occasion, now = new Date(), targetOverride?: number): PlanTime {
   const { day, minutes } = localNow(now);
-  const target = TARGET_MINUTES[occasion];
+  const target = targetOverride ?? TARGET_MINUTES[occasion];
   const idx = Math.max(0, DAYS.indexOf(day as (typeof DAYS)[number]));
   const today = minutes <= target - 30;
   const planDay = today ? DAYS[idx]! : DAYS[(idx + 1) % 7]!;
