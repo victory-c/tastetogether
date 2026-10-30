@@ -280,7 +280,7 @@ export function MatchApp() {
           {!showResults ? (
             <motion.div
               key="builder"
-              initial={{ opacity: 0 }}
+              initial={false}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
             >
