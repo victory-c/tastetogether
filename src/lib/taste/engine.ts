@@ -415,9 +415,9 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
     } catch {
       // Fall through to templates.
     }
-    for (const p of picks) {
-      if (!p.why) p.why = templateWhy(p, req);
-    }
+    picks.forEach((p, i) => {
+      if (!p.why) p.why = templateWhy(p, req, i, dna.shared.map((t) => t.name));
+    });
     yield {
       type: "step",
       id: "explain",
@@ -444,13 +444,38 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
   }
 }
 
-function templateWhy(p: Pick, req: MatchRequest) {
+function pctLabel(rank: number, of: number) {
+  const pct = Math.max(1, Math.round((rank / of) * 100));
+  return rank === 1 ? "#1" : `top ${pct}%`;
+}
+
+/** Deterministic, fact-only copy used when no LLM is configured (or it fails). Varies by card so it never reads canned. */
+function templateWhy(p: Pick, req: MatchRequest, index: number, shared: string[]) {
   const a = p.fitA.drivers[0]?.name;
   const b = p.fitB.drivers[0]?.name;
-  const vibe = p.vibeTags.slice(0, 2).join(" and ").toLowerCase();
-  const bridge =
-    a && b
-      ? `Qloo links ${req.a.name}'s love of ${a} and ${req.b.name}'s love of ${b} to this spot.`
-      : `Both of your taste profiles point here.`;
-  return `${bridge}${vibe ? ` Expect a ${vibe} room` : ""}${p.dishes[0] ? `${vibe ? "," : " Try"} ${vibe ? "and try" : ""} the ${p.dishes[0].toLowerCase()}.` : vibe ? "." : ""}`.replace(/\s+/g, " ").trim();
+  const cuisine = p.cuisine && p.cuisine !== "Restaurant" ? p.cuisine : "";
+  const cuisineWords = new Set(cuisine.toLowerCase().split(" "));
+  const vibe = p.vibeTags
+    .map((v) => v.toLowerCase())
+    .filter((v) => !cuisineWords.has(v))
+    .slice(0, 2)
+    .join(" and ");
+  const room = [vibe, cuisine, "spot"].filter(Boolean).join(" ");
+  const ranks = `It sits in ${req.a.name}'s ${pctLabel(p.fitA.rank, p.fitA.of)} and ${req.b.name}'s ${pctLabel(p.fitB.rank, p.fitB.of)} of ${p.fitA.of} nearby spots`;
+  const dish = p.dishes[0] ? ` Start with the ${p.dishes[0].toLowerCase()}.` : "";
+  const sharedLine = shared.length >= 2 ? `${shared[0]!.toLowerCase()} and ${shared[1]!.toLowerCase()}` : null;
+
+  if (a && b) return `${req.a.name}'s ${a} side and ${req.b.name}'s ${b} side both point to this ${room}. ${ranks}.${dish}`;
+  if (a || b) {
+    const who = a ? req.a.name : req.b.name;
+    const other = a ? req.b.name : req.a.name;
+    return `Qloo ties this ${room} to ${who}'s love of ${a ?? b}, and it still scores well for ${other}. ${ranks}.${dish}`;
+  }
+  const openers = [
+    sharedLine ? `For two people who share a weakness for ${sharedLine}, this ${room} is the common ground.` : `This ${room} is the common ground.`,
+    `A ${room} that neither of you has to compromise on.`,
+    `The safe bet that still feels like a choice: a ${room} that suits both profiles.`,
+    `Different playlists, same table: this ${room} works for both of you.`,
+  ];
+  return `${openers[index % openers.length]} ${ranks}.${dish}`;
 }
