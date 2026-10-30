@@ -1,7 +1,7 @@
-import type { QlooHours } from "../qloo/types";
-import type { Occasion, OpenStatus } from "./types";
+import type { QlooHours } from '../qloo/types';
+import type { Occasion, OpenStatus } from './types';
 
-const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
+const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
 
 function minutesOf(t: string | null): number | null {
   if (!t) return null;
@@ -12,24 +12,24 @@ function minutesOf(t: string | null): number | null {
 export function formatClock(mins: number): string {
   const h24 = Math.floor(mins / 60) % 24;
   const m = mins % 60;
-  const suffix = h24 >= 12 ? "PM" : "AM";
+  const suffix = h24 >= 12 ? 'PM' : 'AM';
   const h = h24 % 12 === 0 ? 12 : h24 % 12;
-  return m ? `${h}:${String(m).padStart(2, "0")} ${suffix}` : `${h} ${suffix}`;
+  return m ? `${h}:${String(m).padStart(2, '0')} ${suffix}` : `${h} ${suffix}`;
 }
 
 /** Local wall-clock time in the venue's time zone (all launch areas are in the Bay Area). */
-export function localNow(now = new Date(), timeZone = "America/Los_Angeles") {
-  const parts = new Intl.DateTimeFormat("en-US", {
+export function localNow(now = new Date(), timeZone = 'America/Los_Angeles') {
+  const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
-    weekday: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
+    weekday: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
   }).formatToParts(now);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
   return {
-    day: get("weekday").toLowerCase(),
-    minutes: Number(get("hour")) * 60 + Number(get("minute")),
+    day: get('weekday').toLowerCase(),
+    minutes: Number(get('hour')) * 60 + Number(get('minute')),
   };
 }
 
@@ -65,15 +65,15 @@ export function planTime(occasion: Occasion, now = new Date(), targetOverride?: 
   const today = minutes <= target - 30;
   const planDay = today ? DAYS[idx]! : DAYS[(idx + 1) % 7]!;
   const evening = target >= 17 * 60;
-  const when = today ? (evening ? "Tonight" : "Today") : "Tomorrow";
+  const when = today ? (evening ? 'Tonight' : 'Today') : 'Tomorrow';
   return { day: planDay, minutes: target, label: `${when} · ${formatClock(target)}` };
 }
 
 export function openStatus(hours: QlooHours | undefined, at: PlanTime): OpenStatus {
-  if (!hours) return { kind: "unknown" };
+  if (!hours) return { kind: 'unknown' };
   const slots = hours[at.day];
-  if (!slots || slots.length === 0) return { kind: "unknown" };
-  if (slots.every((s) => s.closed)) return { kind: "closed_today" };
+  if (!slots || slots.length === 0) return { kind: 'unknown' };
+  if (slots.every((s) => s.closed)) return { kind: 'closed_today' };
 
   let nextOpen: number | null = null;
   let anyValid = false;
@@ -84,11 +84,11 @@ export function openStatus(hours: QlooHours | undefined, at: PlanTime): OpenStat
     if (o === null || c === null) continue;
     anyValid = true;
     if (c <= o) c += 24 * 60; // closes after midnight
-    if (at.minutes >= o && at.minutes < c) return { kind: "open", until: formatClock(c) };
+    if (at.minutes >= o && at.minutes < c) return { kind: 'open', until: formatClock(c) };
     if (o > at.minutes && (nextOpen === null || o < nextOpen)) nextOpen = o;
   }
-  if (nextOpen !== null) return { kind: "opens_later", at: formatClock(nextOpen) };
-  return anyValid ? { kind: "closed_by_then" } : { kind: "unknown" };
+  if (nextOpen !== null) return { kind: 'opens_later', at: formatClock(nextOpen) };
+  return anyValid ? { kind: 'closed_by_then' } : { kind: 'unknown' };
 }
 
 export { DAYS };

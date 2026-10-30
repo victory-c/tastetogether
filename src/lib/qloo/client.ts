@@ -1,8 +1,8 @@
-import "server-only";
+import 'server-only';
 
-import type { QlooEntity, QlooInsightsResponse } from "./types";
+import type { QlooEntity, QlooInsightsResponse } from './types';
 
-const DEFAULT_BASE = "https://hackathon.api.qloo.com";
+const DEFAULT_BASE = 'https://hackathon.api.qloo.com';
 const TIMEOUT_MS = 12_000;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const CACHE_MAX = 500;
@@ -13,7 +13,7 @@ export class QlooError extends Error {
     readonly status: number | null,
   ) {
     super(message);
-    this.name = "QlooError";
+    this.name = 'QlooError';
   }
 }
 
@@ -51,12 +51,12 @@ export interface CallStats {
 
 export async function qlooGet<T>(path: string, params: Params, stats?: CallStats): Promise<T> {
   const key = process.env.QLOO_API_KEY;
-  if (!key) throw new QlooError("Qloo is not configured on this server.", null);
+  if (!key) throw new QlooError('Qloo is not configured on this server.', null);
   const base = process.env.QLOO_API_URL || DEFAULT_BASE;
 
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
-    if (v === undefined || v === null || v === "") continue;
+    if (v === undefined || v === null || v === '') continue;
     qs.set(k, String(v));
   }
   const url = `${base}${path}?${qs.toString()}`;
@@ -71,9 +71,9 @@ export async function qlooGet<T>(path: string, params: Params, stats?: CallStats
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const res = await fetch(url, {
-        headers: { "X-Api-Key": key, accept: "application/json" },
+        headers: { 'X-Api-Key': key, accept: 'application/json' },
         signal: AbortSignal.timeout(TIMEOUT_MS),
-        cache: "no-store",
+        cache: 'no-store',
       });
       if (stats) stats.calls += 1;
       if (res.status === 429 && attempt === 0) {
@@ -90,7 +90,7 @@ export async function qlooGet<T>(path: string, params: Params, stats?: CallStats
     }
   }
   if (lastError instanceof QlooError) throw lastError;
-  throw new QlooError("Qloo could not be reached.", null);
+  throw new QlooError('Qloo could not be reached.', null);
 }
 
 export function entitiesOf(body: QlooInsightsResponse | undefined): QlooEntity[] {

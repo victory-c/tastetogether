@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --color-cream: #fbf6ee;
@@ -65,7 +65,7 @@ body {
 
 /* Soft paper grain + warm glow so the page never feels like a flat template. */
 body::before {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -76,7 +76,7 @@ body::before {
 }
 
 .grain::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
