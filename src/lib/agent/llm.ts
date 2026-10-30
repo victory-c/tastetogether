@@ -100,6 +100,7 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
   const remembered = memoGet<VibePlan>(key);
   if (remembered) return remembered;
   const seen = new Map<string, string>();
+  let searchFailed = false;
   const agent = new ToolLoopAgent({
     model: model(),
     instructions:
@@ -112,15 +113,20 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
         description: "Search Qloo's tag taxonomy for restaurant-relevant tags matching a short keyword.",
         inputSchema: z.object({ keyword: z.string().min(2).max(40) }),
         execute: async ({ keyword }) => {
-          const tags = await searchPlaceTags(keyword, stats);
-          tags.forEach((t) => seen.set(t.id, t.name));
-          return tags;
+          try {
+            const tags = await searchPlaceTags(keyword, stats);
+            tags.forEach((t) => seen.set(t.id, t.name));
+            return tags;
+          } catch (err) {
+            searchFailed = true;
+            throw err;
+          }
         },
       }),
     },
     output: Output.object({ schema: vibeSchema }),
-    // One parallel search step plus the answer; one spare step in case the model searches twice.
-    stopWhen: isStepCount(3),
+    // One parallel search step plus the answer, with spare steps in case the model searches again.
+    stopWhen: isStepCount(4),
   });
 
   const result = await agent.generate({
@@ -131,7 +137,9 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
   if (!out) return null;
   const valid = (xs: { id: string; name: string }[]) => uniqueByName(xs.filter((t) => seen.has(t.id))).slice(0, 5);
   const plan = { boost: valid(out.boost), avoid: valid(out.avoid), priceMax: out.priceMax };
-  memoSet(key, plan);
+  // An empty plan falls back to keywords; a plan built on failed searches is used once but not remembered.
+  if (plan.boost.length === 0 && plan.avoid.length === 0 && !plan.priceMax) return null;
+  if (!searchFailed) memoSet(key, plan);
   return plan;
 }
 

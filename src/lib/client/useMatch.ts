@@ -35,16 +35,19 @@ export interface MatchState {
 
 const initial: MatchState = { phase: 'idle', steps: [], picks: [] };
 
+/** Client-only marker queued when the stream ends, cleanly or not, after every event it carried. */
+type QueuedEvent = MatchEvent | { type: 'closed'; lost: boolean };
+
 /** Real events can arrive faster than a person can read them; space step updates out a little on screen. */
 const STEP_GAP_MS = 260;
 
 export function useMatch() {
   const [state, setState] = useState<MatchState>(initial);
   const abortRef = useRef<AbortController | null>(null);
-  const queueRef = useRef<MatchEvent[]>([]);
+  const queueRef = useRef<QueuedEvent[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const applyNow = useCallback((e: MatchEvent) => {
+  const applyNow = useCallback((e: QueuedEvent) => {
     setState((s) => {
       switch (e.type) {
         case 'step': {
@@ -75,6 +78,20 @@ export function useMatch() {
         }
         case 'error':
           return { ...s, phase: 'error', error: { status: e.status, message: e.message } };
+        case 'closed': {
+          // Once the picks are on screen, a stream that ends early only stops the copy upgrade; the picks stay.
+          if (s.phase === 'done') {
+            const steps = s.steps.map((x) =>
+              x.status === 'running' ? { ...x, status: 'done' as const, detail: 'Fact templates (the connection closed early)' } : x,
+            );
+            return { ...s, steps };
+          }
+          if (s.phase === 'running') {
+            const message = e.lost ? 'We lost the connection. Please try again.' : 'The agent stopped before finishing. Please try again.';
+            return { ...s, phase: 'error', error: { status: 'provider_unavailable', message } };
+          }
+          return s;
+        }
       }
     });
   }, []);
@@ -89,7 +106,7 @@ export function useMatch() {
   }, [applyNow]);
 
   const apply = useCallback(
-    (e: MatchEvent) => {
+    (e: QueuedEvent) => {
       queueRef.current.push(e);
       if (!timerRef.current) drain();
     },
@@ -136,9 +153,10 @@ export function useMatch() {
             nl = buf.indexOf('\n');
           }
         }
+        apply({ type: 'closed', lost: false });
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
-        apply({ type: 'error', status: 'provider_unavailable', message: 'We lost the connection. Please try again.' });
+        apply({ type: 'closed', lost: true });
       }
     },
     [apply],

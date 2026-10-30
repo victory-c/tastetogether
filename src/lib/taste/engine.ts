@@ -129,8 +129,9 @@ function now() {
 
 /**
  * The TasteTogether agent run. Each yielded event is a real step of the pipeline; the UI renders them as they arrive.
+ * `narrateSpares: false` skips LLM copy for the "Try another" spares (picks 4-6), for callers that only show three.
  */
-export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent> {
+export async function* runMatch(input: MatchRequest, { narrateSpares = true } = {}): AsyncGenerator<MatchEvent> {
   const t0 = now();
   const stats: CallStats = { calls: 0, cached: 0 };
   const req = withShow(input);
@@ -183,7 +184,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       return { bodies, ms: now() - t };
     };
     // A free-text vibe goes through the LLM, which takes seconds, so scouting starts now instead of after it;
-    // the vibe's avoid tags and price ceiling are applied to the pool afterwards.
+    // the vibe's avoid tags are applied to the pool afterwards, and a lower price ceiling from the vibe scouts again.
     let radius = req.area.radius;
     const earlyScout = vibeText ? timedScout(radius, priceMax) : null;
     earlyScout?.catch(() => undefined);
@@ -246,10 +247,9 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       status: 'running',
     };
     let relaxed: string | undefined;
-    const first = await (earlyScout ?? timedScout(radius, priceMax));
+    const first = earlyScout && priceMax === req.priceMax ? await earlyScout : await timedScout(radius, priceMax);
     let [aBody, bBody, baseBody] = first.bodies;
     let scoutMs = first.ms;
-    const withinPrice = (e: QlooEntity) => !priceMax || (e.properties?.price_level ?? 0) <= priceMax;
 
     const collect = () => {
       const seen = new Map<string, QlooEntity>();
@@ -260,7 +260,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
           const e = list[i];
           if (!e || seen.has(e.entity_id)) continue;
           if (e.properties?.is_closed) continue;
-          if (!occ.allow(e.properties?.primary_genre?.id ?? '') || !withinPrice(e)) continue;
+          if (!occ.allow(e.properties?.primary_genre?.id ?? '')) continue;
           const names = tagNames(e);
           if (avoidTags.some((t) => names.has(t.name.toLowerCase()))) continue;
           seen.set(e.entity_id, e);
@@ -279,7 +279,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       pool = collect();
     }
     const popularBaseline = entitiesOf(baseBody)
-      .filter((e) => occ.allow(e.properties?.primary_genre?.id ?? '') && withinPrice(e))
+      .filter((e) => occ.allow(e.properties?.primary_genre?.id ?? ''))
       .slice(0, 5)
       .map((e) => e.name);
     yield {
@@ -426,7 +426,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
 
     // 5. Explain. The picks go out right away with fact templates; LLM copy grounded only in the same facts follows
     // as 'narration' events, so the model never holds up the result. The on-screen picks and the "Try another" spares
-    // are written in parallel, on-screen first.
+    // are written in parallel and the on-screen picks are sent first.
     const explainLabel = 'Writing why each pick works for both of you';
     yield { type: 'step', id: 'explain', label: explainLabel, status: 'running' };
     const tExp = now();
@@ -459,7 +459,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
         of: p.fitA.of,
       })),
     });
-    const groups = [picks.slice(0, 3), picks.slice(3)].filter((g) => g.length > 0).map(factsFor);
+    const groups = [picks.slice(0, 3), narrateSpares ? picks.slice(3) : []].filter((g) => g.length > 0).map(factsFor);
     const remembered = groups.map((f) => cachedNarration(f));
     remembered.forEach((story) => story && applyNarration(picks, story));
     const writtenBy = `Written by ${LLM_MODEL} from Qloo facts only`;
@@ -491,22 +491,12 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
     };
     if (!writing) return;
 
-    const inFlight = new Map<number, Promise<[number, Narration | null]>>();
-    groups.forEach((f, i) => {
-      if (remembered[i]) return;
-      inFlight.set(
-        i,
-        narrate(f)
-          .catch(() => null)
-          .then((story): [number, Narration | null] => [i, story]),
-      );
-    });
-    let written = remembered.filter(Boolean).length;
-    while (inFlight.size > 0) {
-      const [i, story] = await Promise.race(inFlight.values());
-      inFlight.delete(i);
+    const tasks = groups.map((f, i) => (remembered[i] ? null : narrate(f).catch((): Narration | null => null)));
+    let wroteShown = Boolean(remembered[0]);
+    for (const [i, task] of tasks.entries()) {
+      const story = task && (await task);
       if (!story) continue;
-      written += 1;
+      if (i === 0) wroteShown = true;
       yield { type: 'narration', headline: i === 0 ? story.headline : undefined, whys: applyNarration(picks, story), llm: LLM_MODEL };
     }
     yield {
@@ -514,7 +504,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       id: 'explain',
       label: explainLabel,
       status: 'done',
-      detail: written > 0 ? writtenBy : 'Fact templates (the LLM did not answer in time)',
+      detail: wroteShown ? writtenBy : 'Fact templates (the LLM did not answer in time)',
       ms: Math.round(now() - tExp),
     };
   } catch (err) {

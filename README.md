@@ -62,9 +62,9 @@ free-text vibe ─ LLM tool loop over /v2/tags ─ boost / avoid tags           
 ```
 
 - **Personal agents + coordinator.** Each person's taste is scouted and scored separately (the “personal agents”); the coordinator merges a shared pool, negotiates the fair pick and explains it. The UI shows how each taste ranked the finalists.
-- **Tool use.** A `ToolLoopAgent` (Vercel AI SDK) searches Qloo's tag taxonomy (all searches in one parallel step) and may only choose tags the tool returned. Restaurant scouting starts while it thinks, so the agent costs one model round trip, not the whole pipeline.
+- **Tool use.** A `ToolLoopAgent` (Vercel AI SDK) searches Qloo's tag taxonomy (all searches in one parallel step) and may only choose tags the tool returned. It takes two model round trips (one parallel search step plus the answer), and restaurant scouting runs meanwhile.
 - **Autonomous recovery.** If too few places match, the agent widens the search radius once and says so; if nothing matches, it returns `no_match` with ways to relax the plan instead of inventing a restaurant.
-- **Grounded copy.** The LLM writes the "why you'll both love it" lines from a JSON of verified facts, treated as untrusted data, and is told never to add dishes, hours, prices or waits, and to credit a specific favorite only when Qloo's explainability names it. The picks arrive first with fact templates; the LLM lines stream in afterwards as their own events (on-screen picks first), so the model never delays the result. Without an LLM key, the templates stay and the trace says so.
+- **Grounded copy.** The LLM writes the "why you'll both love it" lines from a JSON of verified facts, treated as untrusted data, and is told never to add dishes, hours, prices or waits, and to credit a specific favorite only when Qloo's explainability names it. The picks arrive first with fact templates; the LLM lines stream in afterwards as their own events (on-screen picks first), so the explanation call never delays the result. Without an LLM key, the templates stay and the trace says so.
 - **MCP.** `/api/mcp` exposes `find_table_for_two` and `taste_overlap` (Streamable HTTP). Example client config: `{"tastetogether": {"url": "https://tastetogether.vercel.app/api/mcp"}}`.
 
 ### Fair ranking (no black box)
@@ -104,7 +104,7 @@ bash scripts/setup-qloo.sh   # stores QLOO_API_KEY and QLOO_API_URL in .env.loca
 npm run dev                  # http://localhost:3000
 ```
 
-The local database is created at `data/local.db` on first use. Optional: run `bash scripts/setup-anthropic.sh` to enable the vibe-translation agent and LLM-written explanations with your own Anthropic key (it checks the key, saves it to `.env.local` and can add it to Vercel production); everything else works without it. The app never uses platform AI credits implicitly.
+The local database is created at `data/local.db` on first use. Optional: run `bash scripts/setup-anthropic.sh` to enable the vibe-translation agent and LLM-written explanations with your own Anthropic key (it checks the key, saves it to `.env.local` and, if you say yes, adds it to Vercel production; set `VERCEL_SCOPE`, `VERCEL_PROJECT` and `TASTE_PROD_URL` for your own deployment); everything else works without it. The app never uses platform AI credits implicitly.
 
 | Variable | Purpose |
 | --- | --- |

@@ -6,15 +6,19 @@
 # The key is never printed, logged or passed as a command-line argument.
 set -euo pipefail
 
-SCOPE='victory-c-8190s-projects'
-PROJECT='tastetogether'
-PROD_URL='https://tastetogether.vercel.app'
+# The Vercel step defaults to the project owner's deployment; override these to point at your own.
+SCOPE="${VERCEL_SCOPE:-victory-c-8190s-projects}"
+PROJECT="${VERCEL_PROJECT:-tastetogether}"
+PROD_URL="${TASTE_PROD_URL:-https://tastetogether.vercel.app}"
 MODEL="${ANTHROPIC_MODEL:-claude-haiku-5-5}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-# Works from the main checkout or a worktree: .env.local lives in the main checkout.
-GIT_COMMON="$(git -C "$SCRIPT_DIR" rev-parse --path-format=absolute --git-common-dir)"
-ENV_FILE="$(dirname -- "$GIT_COMMON")/.env.local"
+# Use this checkout's .env.local (a symlink is followed); a worktree without one uses the main checkout's.
+ENV_FILE="$SCRIPT_DIR/../.env.local"
+if [[ ! -e "$ENV_FILE" ]]; then
+  GIT_COMMON="$(git -C "$SCRIPT_DIR" rev-parse --path-format=absolute --git-common-dir)"
+  ENV_FILE="$(dirname -- "$GIT_COMMON")/.env.local"
+fi
 
 for cmd in curl python3; do
   command -v "$cmd" >/dev/null 2>&1 || {
@@ -77,8 +81,8 @@ finally:
 print(f'  ✓ Saved to {path} (readable only by you). Restart `npm run dev` if it is running.')
 PY
 
-read -rp 'Also add it to Vercel production and redeploy the live site? [Y/n] ' answer || answer=n
-if [[ "$answer" =~ ^[Nn] ]]; then
+read -rp "Also add it to Vercel production ($SCOPE/$PROJECT) and redeploy $PROD_URL? [y/N] " answer || answer=n
+if [[ ! "$answer" =~ ^[Yy] ]]; then
   echo 'Done. Only local dev uses the key; the live site still uses fact templates.'
   exit 0
 fi
@@ -106,28 +110,39 @@ vercel redeploy "$deployment" --target production --scope "$SCOPE" || {
 }
 
 echo 'Running one live match (Maya & Leo, vibe "cozy, not too loud") to confirm…'
-curl -s -N -X POST "$PROD_URL/api/match" -H 'content-type: application/json' --max-time 60 --data @- <<'JSON' |
+if ! response="$(curl -sS -N --fail-with-body -X POST "$PROD_URL/api/match" -H 'content-type: application/json' --max-time 60 --data @- <<'JSON'
 {"a":{"name":"Maya","interests":[{"id":"4BBEF799-A0C4-4110-AB01-39216993C312","name":"Taylor Swift","kind":"artist"},{"id":"A1407445-5676-4874-B796-3D81FDA62468","name":"Pride & Prejudice","kind":"movie"},{"id":"4C60FF74-A236-4488-8FB3-2FE43D1C79FB","name":"Gilmore Girls","kind":"tv_show"}]},"b":{"name":"Leo","interests":[{"id":"C915A918-39C5-47A3-A101-D9FA1DECBD9C","name":"Kendrick Lamar","kind":"artist"},{"id":"878A5D45-469C-4556-8494-963C2B1D3A95","name":"Dune: Part Two","kind":"movie"},{"id":"4C305B2F-5A46-4885-A6DA-5E22D11E86E0","name":"The Bear","kind":"tv_show"}]},"occasion":"date","priceMax":null,"mode":"three","vibe":"cozy, not too loud"}
 JSON
-  python3 -c '
+)"; then
+  echo "  ✗ The live match request failed: ${response:-no response}" >&2
+  exit 1
+fi
+python3 -c '
 import json, sys
 llm = vibe = None
 picks = []
+got_result = False
 for line in sys.stdin:
     line = line.strip()
     if not line:
         continue
-    event = json.loads(line)
+    try:
+        event = json.loads(line)
+    except json.JSONDecodeError:
+        sys.exit("  ✗ The live site sent something that is not a match stream: " + line[:200])
     kind = event.get("type")
     if kind == "vibe":
         vibe = event.get("source")
     elif kind == "result":
+        got_result = True
         llm = (event.get("stats") or {}).get("llm")
         picks = [p.get("name") for p in event.get("picks") or []]
     elif kind == "narration":
         llm = event.get("llm")
     elif kind == "error" or "error" in event:
         sys.exit("  ✗ The match failed: " + str(event.get("message") or event.get("error")))
+if not got_result:
+    sys.exit("  ✗ The live match ended without a result. Try again in a minute.")
 print("  picks:", ", ".join(picks[:3]) or "none")
 print("  vibe read by:", "the LLM agent" if vibe == "agent" else "keyword fallback")
 if llm and llm not in ("fallback", "pending"):
@@ -135,5 +150,5 @@ if llm and llm not in ("fallback", "pending"):
 elif llm in ("fallback", "pending"):
     sys.exit("  ✗ The site sees the key, but the LLM call failed, so it fell back to templates. Check the key in the Anthropic Console.")
 else:
-    sys.exit("  ✗ The live site does not see the key yet. Wait a minute and open " + "https://tastetogether.vercel.app/match?demo=maya-leo&go=1")
-'
+    sys.exit("  ✗ The live site does not see the key yet. Wait a minute and run a match on the site.")
+' <<<"$response"

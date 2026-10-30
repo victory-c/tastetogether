@@ -81,7 +81,8 @@ const handler = createMcpHandler(
         let dna: TasteDna | undefined;
         let failure: string | undefined;
         const trace: string[] = [];
-        for await (const e of runMatch(req)) {
+        // Only three picks are returned, so the spares get no LLM copy.
+        for await (const e of runMatch(req, { narrateSpares: false })) {
           if (e.type === 'step' && e.status === 'done') trace.push(`${e.label}${e.detail ? ` — ${e.detail}` : ''}`);
           if (e.type === 'dna') dna = e.dna;
           if (e.type === 'result') picks = e.picks;

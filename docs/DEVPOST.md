@@ -28,7 +28,7 @@ The inputs are cultural tastes, not cuisines. Without Qloo there are no candidat
 
 ## How we built it
 
-Next.js 16 on Vercel, TypeScript, Tailwind, Motion. The agent run is a streaming async generator: every step the UI shows is a real step (NDJSON events). An AI SDK `ToolLoopAgent` translates a free-text vibe ("cozy, not too loud") into real Qloo tags by searching `/v2/tags` in one parallel step while scouting runs; it may only choose tags the tool returned. Explanations are written from a facts-only JSON and stream in after the picks, so the LLM never delays the result; deterministic templates are the fallback. Ranking is transparent and unit-tested: per-person z-scores on a shared pool, popularity regressed out, `0.6·min + 0.2·mean + occasion + rating`. Saved profiles and two-phone rooms use Turso with signed anonymous sessions.
+Next.js 16 on Vercel, TypeScript, Tailwind, Motion. The agent run is a streaming async generator: every step the UI shows is a real step (NDJSON events). An AI SDK `ToolLoopAgent` translates a free-text vibe ("cozy, not too loud") into real Qloo tags by searching `/v2/tags` in one parallel step while scouting runs; it may only choose tags the tool returned. Explanations are written from a facts-only JSON and stream in after the picks, so the explanation call never delays the result; deterministic templates are the fallback. Ranking is transparent and unit-tested: per-person z-scores on a shared pool, popularity regressed out, `0.6·min + 0.2·mean + occasion + rating`. Saved profiles and two-phone rooms use Turso with signed anonymous sessions.
 
 ## Challenges
 

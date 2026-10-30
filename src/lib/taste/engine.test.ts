@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Narration, NarrationFacts, VibePlan } from '../agent/llm';
+import { qlooGet } from '../qloo/client';
 import { runMatch } from './engine';
 import { DEFAULT_AREA } from './occasions';
 import type { MatchEvent, MatchRequest } from './types';
@@ -52,7 +53,8 @@ function fakeQloo(path: string, params: Record<string, unknown>) {
       },
     };
   }
-  return { results: { entities: PLACES } };
+  const max = params['filter.price_level.max'];
+  return { results: { entities: typeof max === 'number' ? PLACES.filter((p) => p.properties.price_level <= max) : PLACES } };
 }
 
 const REQ: MatchRequest = {
@@ -64,12 +66,17 @@ const REQ: MatchRequest = {
   mode: 'three',
 };
 
-async function collect(req: MatchRequest = REQ) {
+async function collect(req: MatchRequest = REQ, options?: { narrateSpares?: boolean }) {
   const events: MatchEvent[] = [];
   // Snapshot each event: the engine may update pick copy after an event has been sent.
-  for await (const e of runMatch(req)) events.push(structuredClone(e));
+  for await (const e of runMatch(req, options)) events.push(structuredClone(e));
   return events;
 }
+
+const llmLines = (facts: NarrationFacts): Narration => ({
+  headline: `Headline for ${facts.picks.length}`,
+  picks: facts.picks.map((p) => ({ id: p.id, why: `LLM line for ${p.name}` })),
+});
 
 const resultOf = (events: MatchEvent[]) => events.find((e) => e.type === 'result') as Extract<MatchEvent, { type: 'result' }>;
 const narrations = (events: MatchEvent[]) => events.filter((e) => e.type === 'narration') as Extract<MatchEvent, { type: 'narration' }>[];
@@ -80,6 +87,7 @@ describe('runMatch explanations', () => {
     llm.on = false;
     llm.vibe = null;
     llm.narrate.mockReset();
+    vi.mocked(qlooGet).mockClear();
   });
 
   it('without an LLM key, sends template copy and finishes the explain step before the result', async () => {
@@ -94,10 +102,7 @@ describe('runMatch explanations', () => {
 
   it('with a key, sends the picks first and streams LLM copy for every pick afterwards', async () => {
     llm.on = true;
-    llm.narrate.mockImplementation(async (facts) => ({
-      headline: `Headline for ${facts.picks.length}`,
-      picks: facts.picks.map((p) => ({ id: p.id, why: `LLM line for ${p.name}` })),
-    }));
+    llm.narrate.mockImplementation(async (facts) => llmLines(facts));
     const events = await collect();
     const result = resultOf(events);
     const written = narrations(events);
@@ -121,12 +126,57 @@ describe('runMatch explanations', () => {
     expect(resultOf(events).picks.every((p) => p.why)).toBe(true);
   });
 
-  it("applies the vibe's price ceiling to places scouted before the vibe was known", async () => {
+  it('sends the on-screen copy first even when the spares finish first', async () => {
+    llm.on = true;
+    let call = 0;
+    llm.narrate.mockImplementation(async (facts) => {
+      const first = call++ === 0;
+      if (first) await new Promise((r) => setTimeout(r, 30));
+      return llmLines(facts);
+    });
+    const events = await collect();
+    const written = narrations(events);
+    expect(written).toHaveLength(2);
+    expect(written[0]!.headline).toBeDefined();
+    expect(written[0]!.whys.map((w) => w.id)).toEqual(
+      resultOf(events)
+        .picks.slice(0, 3)
+        .map((p) => p.id),
+    );
+  });
+
+  it('says templates when only the off-screen spares were written', async () => {
+    llm.on = true;
+    let call = 0;
+    llm.narrate.mockImplementation(async (facts) => {
+      if (call++ === 0) throw new Error('timeout');
+      return llmLines(facts);
+    });
+    const events = await collect();
+    expect(narrations(events)).toHaveLength(1);
+    expect(narrations(events)[0]!.headline).toBeUndefined();
+    expect(events.at(-1)).toMatchObject({ type: 'step', id: 'explain', status: 'done', detail: expect.stringContaining('Fact templates') });
+  });
+
+  it('can skip LLM copy for the spares', async () => {
+    llm.on = true;
+    llm.narrate.mockImplementation(async (facts) => llmLines(facts));
+    const events = await collect(REQ, { narrateSpares: false });
+    expect(llm.narrate).toHaveBeenCalledTimes(1);
+    expect(llm.narrate.mock.calls[0]![0].picks).toHaveLength(3);
+    expect(narrations(events)).toHaveLength(1);
+  });
+
+  it("scouts again with the vibe's lower price ceiling", async () => {
     llm.on = true;
     llm.vibe = { boost: [], avoid: [], priceMax: 1 };
     llm.narrate.mockResolvedValue(null);
     const events = await collect({ ...REQ, vibe: 'cheap and cheerful' });
     const result = resultOf(events);
+    const scoutedAtOne = vi
+      .mocked(qlooGet)
+      .mock.calls.some(([, params]) => params?.['filter.price_level.max'] === 1 && !params['filter.results.entities']);
+    expect(scoutedAtOne).toBe(true);
     expect(result.picks.length).toBeGreaterThan(0);
     expect(result.picks.every((p) => (p.priceLevel ?? 0) <= 1)).toBe(true);
   });
