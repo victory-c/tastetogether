@@ -32,6 +32,13 @@ const STEPS = [
   },
 ];
 
+const OCCASION_LIST = [
+  { emoji: "🎟️", label: "Before a show", body: "Pick the venue and doors time; we find dinner nearby that's open before the show.", hot: true },
+  { emoji: "🕯️", label: "Date night", body: "Somewhere you can actually talk — Qloo's date-night and noise tags count.", hot: false },
+  { emoji: "🥂", label: "Catch-up", body: "Lively, shareable spots that suit both of you.", hot: false },
+  { emoji: "☕", label: "Coffee or dessert", body: "Low-stakes first meetups, from the cafés Qloo knows.", hot: false },
+];
+
 const COMPARE = [
   ["Ranks what's popular", "Ranks what fits both of your tastes"],
   ["Optimizes for one person's query", "Scores every spot for each person, then finds the fair middle"],
@@ -143,6 +150,44 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="mx-auto w-full max-w-6xl px-4 pb-20 sm:px-6">
+          <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
+            <div className="rounded-[32px] border border-line bg-paper p-7 shadow-card sm:p-9">
+              <p className="text-xs font-semibold tracking-[0.16em] text-ink-soft uppercase">Made for real nights out</p>
+              <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">The occasion changes the answer.</h2>
+              <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+                {OCCASION_LIST.map((o) => (
+                  <li key={o.label} className={`flex items-start gap-3 rounded-2xl p-4 ring-1 ${o.hot ? "bg-ink text-cream ring-ink" : "bg-cream/70 ring-line"}`}>
+                    <span className="text-2xl" aria-hidden>
+                      {o.emoji}
+                    </span>
+                    <span>
+                      <span className="block font-semibold">{o.label}</span>
+                      <span className={`block text-sm ${o.hot ? "text-cream/70" : "text-ink-soft"}`}>{o.body}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex flex-col rounded-[32px] border border-line bg-ink p-7 text-cream shadow-card sm:p-9">
+              <p className="text-xs font-semibold tracking-[0.16em] text-cream/60 uppercase">Bring your own agent</p>
+              <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight">Ask Claude or ChatGPT to plan dinner.</h2>
+              <p className="mt-3 text-cream/75">
+                TasteTogether is also an MCP server. Any MCP-capable assistant can call <code className="font-mono text-sm text-cream">find_table_for_two</code>{" "}
+                with two people&apos;s favorites and get the same Qloo-scored, fair picks.
+              </p>
+              <pre className="mt-5 overflow-x-auto rounded-2xl bg-white/5 p-4 font-mono text-[12px] leading-relaxed text-cream/85 ring-1 ring-white/10">
+{`{
+  "tastetogether": {
+    "url": "https://tastetogether.vercel.app/api/mcp"
+  }
+}`}
+              </pre>
+              <p className="mt-auto pt-5 text-sm text-cream/60">Tools: find_table_for_two · taste_overlap</p>
+            </div>
+          </div>
+        </section>
+
         <section className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6">
           <div className="bg-duo relative overflow-hidden rounded-[36px] px-7 py-14 text-center text-white shadow-lift sm:px-12">
             <h2 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">Settle tonight&apos;s dinner debate.</h2>
@@ -163,7 +208,13 @@ export default function Home() {
           <p className="flex items-center gap-2">
             <LogoMark size={20} /> Built for the Qloo Agentic Hackathon. Taste intelligence by Qloo.
           </p>
-          <p className="flex gap-4">
+          <p className="flex flex-wrap gap-4">
+            <Link href="/taste" className="hover:text-ink">
+              Saved profiles
+            </Link>
+            <Link href="/room/new" className="hover:text-ink">
+              Two-phone rooms
+            </Link>
             <a href={REPO_URL} className="hover:text-ink" target="_blank" rel="noreferrer">
               Source (MIT)
             </a>

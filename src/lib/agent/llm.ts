@@ -8,7 +8,7 @@ import { qlooGet, type CallStats } from "../qloo/client";
 import type { QlooInsightsResponse, QlooTag } from "../qloo/types";
 import type { Occasion, TasteTag } from "../taste/types";
 
-export const LLM_MODEL = process.env.TASTE_LLM_MODEL || "claude-haiku-5-5";
+export const LLM_MODEL = process.env.TASTE_LLM_MODEL || process.env.ANTHROPIC_MODEL || "claude-haiku-5-5";
 
 /**
  * The LLM is opt-in: it runs only with the owner's own ANTHROPIC_API_KEY. There is deliberately no
