@@ -26,6 +26,21 @@ interface RunRow {
   created_at: string;
 }
 
+/** Runs stored before a field existed must still render: fill fields added later with safe defaults. */
+function normalizeResult(result: RecommendationResult): RecommendationResult {
+  if (!result) return result;
+  return {
+    ...result,
+    perParticipant: result.perParticipant ?? [],
+    cards: (result.cards ?? []).map((c) => ({
+      ...c,
+      ranks: c.ranks ?? {},
+      occasionTags: c.occasionTags ?? [],
+      imageUrl: c.imageUrl ?? null,
+    })),
+  };
+}
+
 function toRecord(r: RunRow): RunRecord {
   return {
     id: r.id,
@@ -34,7 +49,7 @@ function toRecord(r: RunRow): RunRecord {
     profileVersions: parseJson(r.profile_versions, {}),
     constraintVersion: Number(r.constraint_version),
     candidateIds: parseJson(r.candidate_ids, []),
-    result: parseJson(r.result, null as unknown as RecommendationResult),
+    result: normalizeResult(parseJson(r.result, null as unknown as RecommendationResult)),
     status: r.status,
     createdAt: r.created_at,
   };

@@ -1,6 +1,7 @@
 import { matchExcludedCuisine } from './cuisines';
 import { haversineM } from './geo';
 import { hoursStatusAt } from './hours';
+import { isNonMealVenue } from './venue-kind';
 import type { Candidate, Constraints, Exclusion, ParticipantView } from './types';
 
 export interface FilterInput {
@@ -61,6 +62,7 @@ export function applyHardFilters(input: FilterInput): FilterOutput {
     });
     if (c.isClosed === true) return ex('closed_permanently');
     if (rejected.has(c.placeId)) return ex('rejected_this_session');
+    if (isNonMealVenue(c.tagIds, constraints.timeWindow)) return ex('not_a_meal');
     if (constraints.area && radius !== null && c.location && haversineM(constraints.area.center, c.location) > radius)
       return ex('outside_area');
     if (priceMax !== null && c.priceLevel !== null && c.priceLevel > priceMax) return ex('over_budget');

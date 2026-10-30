@@ -1,137 +1,135 @@
 {
- "results": [
-  {
-   "name": "Chez Panisse",
-   "entity_id": "FB20C89B-2337-4F71-9B28-DF2A7360B73A",
-   "types": [
-    "urn:entity:place"
-   ],
-   "tags": [
+  "results": [
     {
-     "name": "Solo diners",
-     "tag_id": "urn:tag:customer_identity:qloo:solo_diners",
-     "type": "urn:tag:customer_identity:qloo",
-     "value": "urn:tag:customer_identity:qloo:solo_diners"
-    },
-    {
-     "name": "5 0 star",
-     "tag_id": "urn:tag:resy:keyword:place:5_0_star",
-     "type": "urn:tag:resy:keyword:place",
-     "value": "urn:tag:resy:keyword:place:5_0_star"
-    },
-    {
-     "name": "Seasonal",
-     "tag_id": "urn:tag:culinary_style:qloo:seasonal",
-     "type": "urn:tag:culinary_style:qloo",
-     "value": "urn:tag:culinary_style:qloo:seasonal"
+      "name": "Chez Panisse",
+      "entity_id": "FB20C89B-2337-4F71-9B28-DF2A7360B73A",
+      "types": ["urn:entity:place"],
+      "tags": [
+        {
+          "name": "Solo diners",
+          "tag_id": "urn:tag:customer_identity:qloo:solo_diners",
+          "type": "urn:tag:customer_identity:qloo",
+          "value": "urn:tag:customer_identity:qloo:solo_diners"
+        },
+        {
+          "name": "5 0 star",
+          "tag_id": "urn:tag:resy:keyword:place:5_0_star",
+          "type": "urn:tag:resy:keyword:place",
+          "value": "urn:tag:resy:keyword:place:5_0_star"
+        },
+        {
+          "name": "Seasonal",
+          "tag_id": "urn:tag:culinary_style:qloo:seasonal",
+          "type": "urn:tag:culinary_style:qloo",
+          "value": "urn:tag:culinary_style:qloo:seasonal"
+        }
+      ],
+      "properties": {
+        "address": "1517 Shattuck Ave. Berkeley, CA 94709",
+        "hours": {
+          "sunday": [
+            {
+              "closed": true
+            }
+          ],
+          "monday": [
+            {
+              "closed": false,
+              "opens": "T17:00:00",
+              "closes": "T22:00:00"
+            }
+          ],
+          "tuesday": [
+            {
+              "closed": false,
+              "opens": "T11:30:00",
+              "closes": "T14:30:00"
+            },
+            {
+              "closed": false,
+              "opens": "T17:00:00",
+              "closes": "T22:00:00"
+            }
+          ],
+          "wednesday": [
+            {
+              "closed": false,
+              "opens": "T11:30:00",
+              "closes": "T14:30:00"
+            },
+            {
+              "closed": false,
+              "opens": "T17:00:00",
+              "closes": "T22:00:00"
+            }
+          ],
+          "thursday": [
+            {
+              "closed": false,
+              "opens": "T11:30:00",
+              "closes": "T14:30:00"
+            },
+            {
+              "closed": false,
+              "opens": "T17:00:00",
+              "closes": "T22:00:00"
+            }
+          ],
+          "friday": [
+            {
+              "closed": false,
+              "opens": "T11:30:00",
+              "closes": "T15:00:00"
+            },
+            {
+              "closed": false,
+              "opens": "T17:00:00",
+              "closes": "T22:00:00"
+            }
+          ],
+          "saturday": [
+            {
+              "closed": false,
+              "opens": "T11:30:00",
+              "closes": "T15:00:00"
+            },
+            {
+              "closed": false,
+              "opens": "T17:00:00",
+              "closes": "T22:00:00"
+            }
+          ]
+        },
+        "external": {
+          "michelin": {
+            "id": "122448"
+          },
+          "resy": {
+            "neighborhood": "Berkeley",
+            "cuisine": "Californian",
+            "rating": 4.76509,
+            "min_party_size": 1,
+            "id": "544",
+            "why_we_like_it": "Because to this day, Chez Panisse’s daily-changing menu featuring the finest local produce in the country remains both innovative and exquisite.",
+            "url": "https://resy.com/cities/san-francisco-ca/venues/chez-panisse",
+            "max_party_size": 6,
+            "rating_count": 9974
+          },
+          "tripadvisor": {
+            "id": "d371491",
+            "rating": 4.5,
+            "rating_count": 1472
+          },
+          "google_place": {
+            "id": "4163509ac1eb5cf9",
+            "place_id": "ChIJcYtcJaF-hYAR-VzrwZpQY0E"
+          }
+        }
+      },
+      "location": {
+        "lat": 37.8796069,
+        "lon": -122.2689248
+      }
     }
-   ],
-   "properties": {
-    "address": "1517 Shattuck Ave. Berkeley, CA 94709",
-    "hours": {
-     "sunday": [
-      {
-       "closed": true
-      }
-     ],
-     "monday": [
-      {
-       "closed": false,
-       "opens": "T17:00:00",
-       "closes": "T22:00:00"
-      }
-     ],
-     "tuesday": [
-      {
-       "closed": false,
-       "opens": "T11:30:00",
-       "closes": "T14:30:00"
-      },
-      {
-       "closed": false,
-       "opens": "T17:00:00",
-       "closes": "T22:00:00"
-      }
-     ],
-     "wednesday": [
-      {
-       "closed": false,
-       "opens": "T11:30:00",
-       "closes": "T14:30:00"
-      },
-      {
-       "closed": false,
-       "opens": "T17:00:00",
-       "closes": "T22:00:00"
-      }
-     ],
-     "thursday": [
-      {
-       "closed": false,
-       "opens": "T11:30:00",
-       "closes": "T14:30:00"
-      },
-      {
-       "closed": false,
-       "opens": "T17:00:00",
-       "closes": "T22:00:00"
-      }
-     ],
-     "friday": [
-      {
-       "closed": false,
-       "opens": "T11:30:00",
-       "closes": "T15:00:00"
-      },
-      {
-       "closed": false,
-       "opens": "T17:00:00",
-       "closes": "T22:00:00"
-      }
-     ],
-     "saturday": [
-      {
-       "closed": false,
-       "opens": "T11:30:00",
-       "closes": "T15:00:00"
-      },
-      {
-       "closed": false,
-       "opens": "T17:00:00",
-       "closes": "T22:00:00"
-      }
-     ]
-    },
-    "external": {
-     "michelin": {
-      "id": "122448"
-     },
-     "resy": {
-      "neighborhood": "Berkeley",
-      "cuisine": "Californian",
-      "rating": 4.76509,
-      "min_party_size": 1,
-      "id": "544",
-      "why_we_like_it": "Because to this day, Chez Panisse’s daily-changing menu featuring the finest local produce in the country remains both innovative and exquisite.",
-      "url": "https://resy.com/cities/san-francisco-ca/venues/chez-panisse",
-      "max_party_size": 6,
-      "rating_count": 9974
-     },
-     "tripadvisor": {
-      "id": "d371491",
-      "rating": 4.5,
-      "rating_count": 1472
-     },
-     "google_place": {
-      "id": "4163509ac1eb5cf9",
-      "place_id": "ChIJcYtcJaF-hYAR-VzrwZpQY0E"
-     }
-    }
-   },
-   "location": {
-    "lat": 37.8796069,
-    "lon": -122.2689248
-   }
-  }
- ]
+  ]
 }

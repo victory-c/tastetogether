@@ -218,13 +218,13 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
   const hoursUnknown = cards.filter((c) => c.hoursStatus === 'unverified').length;
   if (priceUnknown) unknowns.push(copy.unknowns.price(priceUnknown));
   if (hoursUnknown) unknowns.push(copy.unknowns.hours(hoursUnknown));
-  unknowns.push(copy.unknowns.wait);
 
   const short = constraints.decisionMode === 'three' && cards.length < want;
   return {
     result: {
       ...base,
       status: 'success',
+      perParticipant: soloTopPicks(eligibleForSelection(ranked, constraints), participants),
       conditionsToConfirm: budgetToConfirm,
       cards,
       unknowns,
@@ -237,6 +237,27 @@ export async function coordinate(input: CoordinatorInput): Promise<CoordinatorOu
     candidateIds,
     evidence,
   };
+}
+
+/** The same pool selectForMode picks from: with "must be open", unverified-hours places are held back. */
+function eligibleForSelection(ranked: ScoredCandidate[], constraints: Constraints): ScoredCandidate[] {
+  return constraints.requireOpen && constraints.timeWindow ? ranked.filter((r) => r.hoursStatus === 'open_at_start') : ranked;
+}
+
+/**
+ * Each person's own top three over the same filtered, jointly scored pool. Two-person runs only.
+ * These are restaurant names and ranks, never the other person's history.
+ */
+function soloTopPicks(ranked: ScoredCandidate[], participants: ParticipantView[]): RecommendationResult['perParticipant'] {
+  if (participants.length < 2) return [];
+  return participants.map((p) => ({
+    key: p.key,
+    displayName: p.displayName,
+    picks: [...ranked]
+      .sort((x, y) => x.scores[p.key]!.rank - y.scores[p.key]!.rank)
+      .slice(0, 3)
+      .map((r) => ({ placeId: r.candidate.placeId, name: r.candidate.name, rank: r.scores[p.key]!.rank + 1 })),
+  }));
 }
 
 /** Whether visited places were actually excluded for this run (the allow_revisits relaxation turns it off). */
@@ -259,6 +280,7 @@ function emptyResult(input: CoordinatorInput): RecommendationResult {
     explanationSource: 'template',
     message: null,
     createdAt: input.now.toISOString(),
+    perParticipant: [],
     stale: false,
   };
 }
@@ -309,6 +331,7 @@ function toCard(
     venueFacts.push({ field: 'distance', value: `${(s.distanceM / 1609.344).toFixed(1)} mi (straight-line)`, source: 'computed' });
   const cuisines = cuisineNames(c.tagIds, c.tagNames);
   if (cuisines.length) venueFacts.push({ field: 'cuisine', value: cuisines.join(', '), source: 'qloo' });
+  if (s.occasionTags.length) venueFacts.push({ field: 'occasion', value: s.occasionTags.join(', '), source: 'qloo' });
 
   const userProvided: string[] = [];
   for (const p of participants) {
@@ -335,5 +358,8 @@ function toCard(
     evidence: { userProvided, qlooSignals, venueFacts },
     links,
     utilities: Object.fromEntries(Object.entries(s.scores).map(([k, v]) => [k, v!.utility])),
+    ranks: Object.fromEntries(Object.entries(s.scores).map(([k, v]) => [k, { rank: v!.rank + 1, of: v!.poolSize }])),
+    imageUrl: c.imageUrl,
+    occasionTags: s.occasionTags,
   };
 }

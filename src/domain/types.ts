@@ -48,6 +48,8 @@ export interface Candidate {
   website: string | null;
   externalUrl: string | null;
   description: string | null;
+  /** Qloo-hosted venue photo, when Qloo has one. */
+  imageUrl: string | null;
 }
 
 /** What a participant's agent is allowed to hand to the coordinator. No raw history. */
@@ -103,7 +105,8 @@ export type ExclusionReason =
   | 'visited'
   | 'dismissed'
   | 'rejected_this_session'
-  | 'missing_score';
+  | 'missing_score'
+  | 'not_a_meal';
 
 export interface Exclusion {
   placeId: string;
@@ -131,10 +134,12 @@ export interface ScoredCandidate {
   meanUtility: number;
   distanceM: number | null;
   hoursStatus: HoursStatus;
+  /** Qloo tag names matching the requested occasion (soft preference). */
+  occasionTags: string[];
 }
 
 export interface VenueFact {
-  field: 'address' | 'price_level' | 'hours' | 'distance' | 'cuisine' | 'website';
+  field: 'address' | 'price_level' | 'hours' | 'distance' | 'cuisine' | 'website' | 'occasion';
   value: string;
   source: 'qloo' | 'computed';
 }
@@ -163,6 +168,18 @@ export interface RecommendationCard {
   evidence: CardEvidence;
   links: { label: string; url: string }[];
   utilities: Partial<Record<ParticipantKey, number>>;
+  /** 1-based rank and pool size per participant, from their own Qloo scoring query. */
+  ranks: Partial<Record<ParticipantKey, { rank: number; of: number }>>;
+  imageUrl: string | null;
+  /** Qloo tag names that match the occasion, e.g. "Date night". Empty when none or no occasion. */
+  occasionTags: string[];
+}
+
+/** What each person would have gotten alone from the same filtered pool. Shows why the shared pick differs. */
+export interface ParticipantTopPicks {
+  key: ParticipantKey;
+  displayName: string;
+  picks: { placeId: string; name: string; rank: number }[];
 }
 
 export interface RecommendationResult {
@@ -182,4 +199,6 @@ export interface RecommendationResult {
   message: string | null;
   createdAt: string;
   stale: boolean;
+  /** Two-person runs only: each person's own top picks over the same pool. Empty for solo runs. */
+  perParticipant: ParticipantTopPicks[];
 }

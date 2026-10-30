@@ -1,5 +1,6 @@
 import { haversineM } from './geo';
 import { hoursStatusAt } from './hours';
+import { occasionMatches } from './venue-kind';
 import type { Candidate, Constraints, Exclusion, ParticipantKey, ParticipantScore, ScoredCandidate } from './types';
 
 /** Affinities from ONE scoring query per participant: placeId -> affinity. */
@@ -66,12 +67,17 @@ export function rankCandidates(
       meanUtility: us.reduce((a, b) => a + b, 0) / us.length,
       distanceM: constraints.area && c.location ? haversineM(constraints.area.center, c.location) : null,
       hoursStatus: hoursStatusAt(c.hours, constraints.timeWindow),
+      occasionTags: occasionMatches(c.tagIds, c.tagNames, constraints.occasion),
     });
   }
 
+  // Occasion is a soft preference: a matching Qloo occasion tag only breaks ties on min(uA, uB),
+  // so it can never put a place ahead of one the worse-off person ranks higher.
+  const occasionFit = (s: ScoredCandidate) => (s.occasionTags.length > 0 ? 1 : 0);
   ranked.sort(
     (a, b) =>
       b.minUtility - a.minUtility ||
+      occasionFit(b) - occasionFit(a) ||
       b.meanUtility - a.meanUtility ||
       (a.distanceM ?? Number.POSITIVE_INFINITY) - (b.distanceM ?? Number.POSITIVE_INFINITY) ||
       a.candidate.placeId.localeCompare(b.candidate.placeId),

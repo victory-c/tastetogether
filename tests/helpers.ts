@@ -13,6 +13,7 @@ export const candidate = (placeId: string, patch: Partial<Candidate> = {}): Cand
   website: null,
   externalUrl: null,
   description: null,
+  imageUrl: null,
   ...patch,
 });
 export const constraints = (patch: Partial<Constraints> = {}): Constraints => ({

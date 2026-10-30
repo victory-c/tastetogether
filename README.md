@@ -8,6 +8,13 @@ Live demo: https://tastetogether.vercel.app (click **Try the one-minute demo**; 
 
 Qloo entity search resolves places to confirmed entities. For discovery, the app calls `/v2/insights` separately for each participant, merges the candidates, and filters them against the shared constraints and history. It then uses `filter.results.entities` to score the shared candidate pool against each person's own signals. Affinity values are compared only within one query and converted to rank utility. The final shared order prioritizes `min(uA, uB)`, then the mean utility, followed by distance and entity ID for ties.
 
+Qloo tags also drive two product rules:
+
+- **Meals, not snacks.** Qloo's restaurant genre includes coffee shops, bakeries and dessert shops (about 40% of Berkeley results). A venue whose genres are all drink, dessert or bakery genres is excluded with a visible reason, unless the time window starts before 11:00.
+- **Occasion as a soft preference.** Friends, date and business map to Qloo tags such as `groups_of_friends`, `date_night`, `romantic` and `business_professionals`. A matching tag only breaks ties after `min(uA, uB)`, so it can never put a place ahead of one the worse-off person ranks higher. The matching tag is shown on the card as "Qloo: Date night".
+
+Results in a room also show **alone vs together**: each person's own top picks from the same filtered pool next to the shared picks, so you can see why the shared choice differs from either person's favorite.
+
 ## Architecture
 
 ```text

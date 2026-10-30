@@ -40,6 +40,8 @@ export const qlooEntitySchema = z.object({
       description: z.string().nullish(),
       hours: z.record(z.string(), z.array(interval)).nullish(),
       geocode: z.object({ city: z.string().nullish() }).partial().nullish(),
+      image: z.object({ url: z.string().nullish() }).partial().nullish(),
+      primary_genre: z.object({ id: z.string().nullish(), name: z.string().nullish() }).partial().nullish(),
     })
     .partial()
     .nullish(),

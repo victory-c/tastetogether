@@ -37,7 +37,11 @@ export function mapEntity(e: QlooEntity): Candidate {
   const p = e.properties ?? {};
   const lat = e.location?.lat;
   const lon = e.location?.lon;
-  const tags = e.tags ?? [];
+  const tags = [...(e.tags ?? [])];
+  // The primary genre is not always repeated in tags; it decides what kind of venue this is.
+  const primary = p.primary_genre;
+  if (primary?.id && !tags.some((t) => t.id === primary.id)) tags.unshift({ id: primary.id, name: primary.name ?? null });
+  const image = p.image?.url ?? null;
   return {
     placeId: e.entity_id,
     name: e.name,
@@ -53,5 +57,7 @@ export function mapEntity(e: QlooEntity): Candidate {
       e.external?.resy?.url ??
       (e.external?.google_place?.place_id ? `https://www.google.com/maps/place/?q=place_id:${e.external.google_place.place_id}` : null),
     description: p.short_description ?? p.description ?? null,
+    // Only Qloo's own image host, so a third-party URL can never be rendered from API data.
+    imageUrl: image && image.startsWith('https://images.qloo.com/') ? image : null,
   };
 }
