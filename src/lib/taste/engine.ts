@@ -1,6 +1,15 @@
 import 'server-only';
 
-import { interpretVibe, keywordVibe, llmAvailable, LLM_MODEL, narrate } from '../agent/llm';
+import {
+  cachedNarration,
+  interpretVibe,
+  keywordVibe,
+  llmAvailable,
+  LLM_MODEL,
+  narrate,
+  type Narration,
+  type NarrationFacts,
+} from '../agent/llm';
 import { entitiesOf, qlooGet, QlooError, type CallStats } from '../qloo/client';
 import type { QlooCompareResponse, QlooCompareTag, QlooEntity, QlooInsightsResponse } from '../qloo/types';
 import { dinnerBeforeDoors, openStatus, planTime } from './hours';
@@ -120,8 +129,9 @@ function now() {
 
 /**
  * The TasteTogether agent run. Each yielded event is a real step of the pipeline; the UI renders them as they arrive.
+ * `narrateSpares: false` skips LLM copy for the "Try another" spares (picks 4-6), for callers that only show three.
  */
-export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent> {
+export async function* runMatch(input: MatchRequest, { narrateSpares = true } = {}): AsyncGenerator<MatchEvent> {
   const t0 = now();
   const stats: CallStats = { calls: 0, cached: 0 };
   const req = withShow(input);
@@ -168,6 +178,16 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
         qlooGet<QlooInsightsResponse>('/v2/insights', base, stats),
       ]);
     };
+    const timedScout = async (radius: number, price: number | null) => {
+      const t = now();
+      const bodies = await scout(radius, price);
+      return { bodies, ms: now() - t };
+    };
+    // A free-text vibe goes through the LLM, which takes seconds, so scouting starts now instead of after it;
+    // the vibe's avoid tags are applied to the pool afterwards, and a lower price ceiling from the vibe scouts again.
+    let radius = req.area.radius;
+    const earlyScout = vibeText ? timedScout(radius, priceMax) : null;
+    earlyScout?.catch(() => undefined);
 
     const dnaBody = await dnaPromise;
     const shared = cleanDnaTags(dnaBody.results?.tags, 'score', 6);
@@ -226,10 +246,10 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       label: `Scouting ${req.show ? `around ${req.area.label}` : req.area.label} through each person's taste`,
       status: 'running',
     };
-    const tScout = now();
-    let radius = req.area.radius;
     let relaxed: string | undefined;
-    let [aBody, bBody, baseBody] = await scout(radius, priceMax);
+    const first = earlyScout && priceMax === req.priceMax ? await earlyScout : await timedScout(radius, priceMax);
+    let [aBody, bBody, baseBody] = first.bodies;
+    let scoutMs = first.ms;
 
     const collect = () => {
       const seen = new Map<string, QlooEntity>();
@@ -253,7 +273,9 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
     if (pool.length < 8) {
       radius = Math.round(radius * 2);
       relaxed = `Only ${pool.length} spots matched nearby, so the agent widened the search to ${(radius / 1609).toFixed(1)} miles.`;
-      [aBody, bBody, baseBody] = await scout(radius, priceMax);
+      const again = await timedScout(radius, priceMax);
+      [aBody, bBody, baseBody] = again.bodies;
+      scoutMs += again.ms;
       pool = collect();
     }
     const popularBaseline = entitiesOf(baseBody)
@@ -266,7 +288,7 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       label: `Scouting ${req.show ? `around ${req.area.label}` : req.area.label} through each person's taste`,
       status: 'done',
       detail: `${pool.length} ${req.occasion === 'coffee' ? 'cafés' : 'restaurants'} in the shared pool${visited.size ? ` · skipped ${visited.size} you've been to` : ''}${relaxed ? ' · search widened' : ''}`,
-      ms: Math.round(now() - tScout),
+      ms: Math.round(scoutMs),
     };
 
     if (pool.length === 0) {
@@ -402,74 +424,88 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
       };
     });
 
-    // 5. Explain: LLM copy grounded only in the facts above; deterministic template if unavailable.
-    yield { type: 'step', id: 'explain', label: 'Writing why each pick works for both of you', status: 'running' };
+    // 5. Explain. The picks go out right away with fact templates; LLM copy grounded only in the same facts follows
+    // as 'narration' events, so the model never holds up the result. The on-screen picks and the "Try another" spares
+    // are written in parallel and the on-screen picks are sent first.
+    const explainLabel = 'Writing why each pick works for both of you';
+    yield { type: 'step', id: 'explain', label: explainLabel, status: 'running' };
     const tExp = now();
-    let headline: string | undefined;
-    let llmUsed: string | null = null;
-    try {
-      const story = await narrate({
-        aName: req.a.name,
-        bName: req.b.name,
-        aLoves: req.a.interests.map((i) => i.name),
-        bLoves: req.b.interests.map((i) => i.name),
-        shared: dna.shared.map((t) => t.name),
-        occasion: occ.label,
-        picks: picks.slice(0, 4).map((p) => ({
-          id: p.id,
-          name: p.name,
-          cuisine: p.cuisine,
-          description: p.description?.slice(0, 180),
-          vibe: [...p.vibeTags, ...p.occasionTags],
-          dishes: p.dishes,
-          aDrivers: p.fitA.drivers.map((d) => d.name),
-          bDrivers: p.fitB.drivers.map((d) => d.name),
-          rankA: p.fitA.rank,
-          rankB: p.fitB.rank,
-          of: p.fitA.of,
-        })),
-      });
-      if (story) {
-        llmUsed = LLM_MODEL;
-        headline = story.headline;
-        for (const s of story.picks) {
-          const pick = picks.find((p) => p.id === s.id);
-          if (pick) pick.why = s.why;
-        }
-      }
-    } catch {
-      // Fall through to templates.
-    }
     picks.forEach((p, i) => {
-      if (!p.why)
-        p.why = templateWhy(
-          p,
-          req,
-          i,
-          dna.shared.map((t) => t.name),
-        );
+      p.why = templateWhy(
+        p,
+        req,
+        i,
+        dna.shared.map((t) => t.name),
+      );
     });
-    yield {
-      type: 'step',
-      id: 'explain',
-      label: 'Writing why each pick works for both of you',
-      status: 'done',
-      detail: llmUsed ? `Written by ${llmUsed} from Qloo facts only` : 'Fact templates (LLM not configured)',
-      ms: Math.round(now() - tExp),
-    };
+    const factsFor = (group: Pick[]): NarrationFacts => ({
+      aName: req.a.name,
+      bName: req.b.name,
+      aLoves: req.a.interests.map((i) => i.name),
+      bLoves: req.b.interests.map((i) => i.name),
+      shared: dna.shared.map((t) => t.name),
+      occasion: occ.label,
+      picks: group.map((p) => ({
+        id: p.id,
+        name: p.name,
+        cuisine: p.cuisine,
+        description: p.description?.slice(0, 180),
+        vibe: [...p.vibeTags, ...p.occasionTags],
+        dishes: p.dishes,
+        aDrivers: p.fitA.drivers.map((d) => d.name),
+        bDrivers: p.fitB.drivers.map((d) => d.name),
+        rankA: p.fitA.rank,
+        rankB: p.fitB.rank,
+        of: p.fitA.of,
+      })),
+    });
+    const groups = [picks.slice(0, 3), narrateSpares ? picks.slice(3) : []].filter((g) => g.length > 0).map(factsFor);
+    const remembered = groups.map((f) => cachedNarration(f));
+    remembered.forEach((story) => story && applyNarration(picks, story));
+    const writtenBy = `Written by ${LLM_MODEL} from Qloo facts only`;
+    const llmOn = llmAvailable();
+    const writing = llmOn && remembered.some((story) => !story);
 
+    if (!writing) {
+      yield {
+        type: 'step',
+        id: 'explain',
+        label: explainLabel,
+        status: 'done',
+        detail: llmOn ? writtenBy : 'Fact templates (LLM not configured)',
+        ms: Math.round(now() - tExp),
+      };
+    }
     yield {
       type: 'result',
       picks,
-      headline,
+      headline: remembered[0]?.headline,
       relaxed,
       when: when.label,
       stats: {
         qlooCalls: stats.calls,
         cached: stats.cached,
         ms: Math.round(now() - t0),
-        llm: llmUsed ?? (llmAvailable() ? 'fallback' : null),
+        llm: writing ? 'pending' : llmOn ? LLM_MODEL : null,
       },
+    };
+    if (!writing) return;
+
+    const tasks = groups.map((f, i) => (remembered[i] ? null : narrate(f).catch((): Narration | null => null)));
+    let wroteShown = Boolean(remembered[0]);
+    for (const [i, task] of tasks.entries()) {
+      const story = task && (await task);
+      if (!story) continue;
+      if (i === 0) wroteShown = true;
+      yield { type: 'narration', headline: i === 0 ? story.headline : undefined, whys: applyNarration(picks, story), llm: LLM_MODEL };
+    }
+    yield {
+      type: 'step',
+      id: 'explain',
+      label: explainLabel,
+      status: 'done',
+      detail: wroteShown ? writtenBy : 'Fact templates (the LLM did not answer in time)',
+      ms: Math.round(now() - tExp),
     };
   } catch (err) {
     yield {
@@ -481,6 +517,19 @@ export async function* runMatch(input: MatchRequest): AsyncGenerator<MatchEvent>
           : 'Something went wrong talking to Qloo. Please try again.',
     };
   }
+}
+
+/** Copies the LLM lines onto the picks they name and returns them; unknown ids and empty lines are ignored. */
+function applyNarration(picks: Pick[], story: Narration) {
+  const whys: { id: string; why: string }[] = [];
+  for (const s of story.picks) {
+    const pick = picks.find((p) => p.id === s.id);
+    const why = s.why.trim();
+    if (!pick || !why) continue;
+    pick.why = why;
+    whys.push({ id: pick.id, why });
+  }
+  return whys;
 }
 
 function pctLabel(rank: number, of: number) {

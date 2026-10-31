@@ -28,7 +28,7 @@ The inputs are cultural tastes, not cuisines. Without Qloo there are no candidat
 
 ## How we built it
 
-Next.js 16 on Vercel, TypeScript, Tailwind, Motion. The agent run is a streaming async generator: every step the UI shows is a real step (NDJSON events). An AI SDK `ToolLoopAgent` translates a free-text vibe ("cozy, not too loud") into real Qloo tags by searching `/v2/tags`; it may only choose tags the tool returned. Explanations are written from a facts-only JSON, with deterministic templates as a fallback. Ranking is transparent and unit-tested: per-person z-scores on a shared pool, popularity regressed out, `0.6·min + 0.2·mean + occasion + rating`. Saved profiles and two-phone rooms use Turso with signed anonymous sessions.
+Next.js 16 on Vercel, TypeScript, Tailwind, Motion. The agent run is a streaming async generator: every step the UI shows is a real step (NDJSON events). An AI SDK `ToolLoopAgent` translates a free-text vibe ("cozy, not too loud") into real Qloo tags by searching `/v2/tags` in one parallel step while scouting runs; it may only choose tags the tool returned. Explanations are written from a facts-only JSON and stream in after the picks, so the explanation call never delays the result; deterministic templates are the fallback. Ranking is transparent and unit-tested: per-person z-scores on a shared pool, popularity regressed out, `0.6·min + 0.2·mean + occasion + rating`. Saved profiles and two-phone rooms use Turso with signed anonymous sessions.
 
 ## Challenges
 
@@ -36,7 +36,7 @@ Probing the live API changed the design. `filter.location.query=Berkeley, CA` re
 
 ## What we're proud of
 
-A pick you can trust: every number and tag on a card traces to Qloo data, unknown hours say "unverified", and the app never invents wait times or prices. And it's fast: about six Qloo calls, typically 1–3 seconds.
+A pick you can trust: every number and tag on a card traces to Qloo data, unknown hours say "unverified", and the app never invents wait times or prices. And it's fast: about six Qloo calls; picks typically appear in 1–5 seconds and the written explanations follow a few seconds later.
 
 ## What's next
 

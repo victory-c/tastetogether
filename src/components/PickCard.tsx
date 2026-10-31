@@ -156,7 +156,12 @@ export function PickCard({
           )}
         </div>
 
-        {pick.why && <p className={clsx('leading-relaxed text-ink', hero ? 'text-[17px]' : 'text-[15px]')}>{pick.why}</p>}
+        {pick.why && (
+          // Keyed by the text so the line fades in again when the LLM copy replaces the template.
+          <p key={pick.why} className={clsx('animate-rewrite leading-relaxed text-ink', hero ? 'text-[17px]' : 'text-[15px]')}>
+            {pick.why}
+          </p>
+        )}
 
         <div className={clsx('grid min-w-0 grid-cols-1 gap-3', hero && 'sm:grid-cols-2')}>
           <FitMeter side="a" name={aName} fit={pick.fitA} />

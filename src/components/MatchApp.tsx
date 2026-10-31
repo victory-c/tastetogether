@@ -278,12 +278,7 @@ export function MatchApp() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 sm:px-6">
         <AnimatePresence mode="wait">
           {!showResults ? (
-            <motion.div
-              key="builder"
-              initial={false}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
-            >
+            <motion.div key="builder" initial={false} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}>
               <div className="flex flex-col gap-4 pt-6 pb-6 sm:flex-row sm:items-end sm:justify-between sm:pt-10">
                 <div>
                   {invitedBy ? (
@@ -447,7 +442,11 @@ export function MatchApp() {
 
               <div className="grid items-start gap-4 lg:grid-cols-[1.25fr_1fr] lg:gap-6">
                 <TasteVenn dna={state.dna} a={a} b={b} />
-                <AgentTrace steps={state.steps} running={state.phase === 'running'} stats={state.stats} />
+                <AgentTrace
+                  steps={state.steps}
+                  running={state.phase === 'running' || (state.phase === 'done' && state.steps.some((s) => s.status === 'running'))}
+                  stats={state.stats}
+                />
               </div>
 
               {state.phase === 'running' && (
@@ -507,7 +506,10 @@ export function MatchApp() {
                         : `${OCCASIONS[plan.occasion].label} · ${plan.near ? 'Near you' : AREAS.find((x) => x.id === plan.areaId)?.label}`}
                       {state.when ? ` · ${state.when}` : ''}
                     </p>
-                    <h2 className="mt-1 font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+                    <h2
+                      key={state.headline ?? 'default'}
+                      className="mt-1 animate-rewrite font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl"
+                    >
                       {state.headline ??
                         (plan.mode === 'one'
                           ? `Tonight, ${a.name} & ${b.name} eat here.`
