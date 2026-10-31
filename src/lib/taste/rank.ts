@@ -121,8 +121,8 @@ export function rankDuo(pool: PoolItem[]): RankedItem[] {
       const quality = p.rating ? Math.max(0, Math.min(1, (p.rating - 3.5) / 1.5)) : 0.3;
       const floor = Math.min(fa, fb);
       const penalty = p.penalty ?? 0;
-      // No vibe lift for a weak fit for either person, or for a place that is closed when you would go.
-      const gate = Math.max(0, Math.min(1, (floor - VIBE_GATE_FROM) / VIBE_GATE_RAMP)) * (1 - penalty);
+      // No vibe lift for a weak fit for either person, or for a place that is not open when you would go.
+      const gate = penalty > 0 ? 0 : Math.max(0, Math.min(1, (floor - VIBE_GATE_FROM) / VIBE_GATE_RAMP));
       const fair =
         0.6 * floor +
         0.2 * ((fa + fb) / 2) +

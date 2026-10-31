@@ -4,6 +4,7 @@ import type { Narration, NarrationFacts, VibePlan } from '../agent/llm';
 import { qlooGet } from '../qloo/client';
 import { runMatch } from './engine';
 import { DEFAULT_AREA } from './occasions';
+import { VIBE_WEIGHT } from './rank';
 import type { MatchEvent, MatchRequest } from './types';
 
 // Synthetic stand-ins for Qloo and the LLM: no network, no real Qloo data.
@@ -212,11 +213,43 @@ describe('runMatch vibe ranking', () => {
   });
 
   it('does not lift a place that is a poor fit, and says the vibe went unmatched', async () => {
-    tag(8, 'Quiet');
+    // place-5 sits just above the 0.4 gate: an ungated lift would carry it into the top three.
+    tag(5, 'Quiet');
     llm.vibe = quiet;
     const result = resultOf(await collect({ ...REQ, vibe: 'quiet' }));
     expect(result.picks.slice(0, 3).map((p) => p.id)).toEqual(['place-0', 'place-1', 'place-2']);
     expect(result.relaxed).toBe('No place tagged Quiet made your top three; these are the best fits for both of you.');
+  });
+
+  it('adds the vibe lift once, apart from the occasion bonus', async () => {
+    tag(0, 'Outdoor seating'); // not a date-night boost tag
+    const fairOf = async (vibe?: string) =>
+      resultOf(await collect(vibe ? { ...REQ, vibe } : REQ)).picks.find((p) => p.id === 'place-0')!.fair;
+    const before = await fairOf();
+    llm.vibe = { boost: [{ id: 'o', name: 'Outdoor seating', concept: 'outdoor' }], avoid: [], priceMax: null };
+    expect((await fairOf('outdoor seating')) - before).toBeCloseTo(VIBE_WEIGHT, 6);
+  });
+
+  it('names the part of the vibe that no on-screen pick has', async () => {
+    [0, 1, 2].forEach((i) => tag(i, 'Vegetarian'));
+    tag(8, 'Quiet');
+    llm.vibe = { ...quiet, boost: [...quiet.boost, { id: 'v', name: 'Vegetarian', concept: 'vegetarian' }] };
+    const result = resultOf(await collect({ ...REQ, vibe: 'quiet, vegetarian' }));
+    expect(result.relaxed).toBe('No place tagged Quiet made your top three; these are the best fits for both of you.');
+  });
+
+  it('says when no scored place has the tag at all', async () => {
+    llm.vibe = quiet;
+    const result = resultOf(await collect({ ...REQ, vibe: 'quiet' }));
+    expect(result.relaxed).toBe('None of the 10 spots we scored is tagged Quiet; these are the best fits for both of you.');
+  });
+
+  it('checks only the on-screen picks: a match at #3 is off screen in mode one', async () => {
+    tag(4, 'Quiet');
+    llm.vibe = quiet;
+    const result = resultOf(await collect({ ...REQ, vibe: 'quiet', mode: 'one' }));
+    expect(result.picks.slice(0, 3).map((p) => p.id)).toEqual(['place-0', 'place-1', 'place-4']);
+    expect(result.relaxed).toBe('No place tagged Quiet made your top pick; this is the best fit for both of you.');
   });
 
   it('scores synonyms from one search as a single ask', async () => {

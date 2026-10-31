@@ -85,8 +85,10 @@ describe('rankDuo', () => {
     const base = [item('a', 0.5, 0.9, 0.9), item('b', 0.5, 0.8, 0.8), item('c', 0.5, 0.7, 0.7)];
     const lopsided = (vibeMatch: number) => [...base, { ...item('one-sided', 0.5, 0.95, 0.6), vibeMatch }];
     expect(fairOf(lopsided(1), 'one-sided')).toBe(fairOf(lopsided(0), 'one-sided'));
-    const closed = (vibeMatch: number) => [...base, { ...item('closed', 0.5, 0.95, 0.95), vibeMatch, penalty: 1 }];
-    expect(fairOf(closed(1), 'closed')).toBe(fairOf(closed(0), 'closed'));
+    for (const penalty of [1, 0.8]) {
+      const closed = (vibeMatch: number) => [...base, { ...item('closed', 0.5, 0.95, 0.95), vibeMatch, penalty }];
+      expect(fairOf(closed(1), 'closed')).toBe(fairOf(closed(0), 'closed'));
+    }
   });
 
   it('returns ranks per person', () => {

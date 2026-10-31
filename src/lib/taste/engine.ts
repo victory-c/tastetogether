@@ -380,16 +380,23 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
     };
     const top = ranked.slice(0, RESULT_COUNT);
     const nameOf = (id: string) => byId.get(id)!.name;
-    // When no on-screen pick matches any part of the vibe, say so instead of looking like the vibe was ignored.
+    // Name any part of the vibe that no on-screen pick has, instead of looking like it was ignored.
     const one = req.mode === 'one';
     const shown = top.slice(0, one ? 1 : 3).map((r) => tagNames(byId.get(r.id)!));
-    const asked = concepts.map((c) => c[0]!);
-    const vibeNote =
-      asked.length && shown.every((names) => vibeShare(names, concepts) === 0)
-        ? `No place tagged ${asked.length > 1 ? `${asked.slice(0, -1).join(', ')} or ${asked.at(-1)}` : asked[0]} made your ${
-            one ? 'top pick; this is the best fit' : 'top three; these are the best fits'
-          } for both of you.`
-        : undefined;
+    const missed = concepts.filter((c) => shown.every((names) => vibeShare(names, [c]) === 0));
+    const missedLabel =
+      missed.length > 1
+        ? `${missed
+            .slice(0, -1)
+            .map((c) => c[0])
+            .join(', ')} or ${missed.at(-1)![0]}`
+        : missed[0]?.[0];
+    const best = one ? 'this is the best fit' : 'these are the best fits';
+    const vibeNote = !missed.length
+      ? undefined
+      : scored.some((e) => vibeShare(tagNames(e), missed) > 0)
+        ? `No place tagged ${missedLabel} made your ${one ? 'top pick' : 'top three'}; ${best} for both of you.`
+        : `None of the ${scored.length} spots we scored is tagged ${missedLabel}; ${best} for both of you.`;
     yield {
       type: 'contrast',
       popular: popularBaseline.slice(0, 3),

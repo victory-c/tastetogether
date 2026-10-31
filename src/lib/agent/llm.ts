@@ -181,7 +181,10 @@ export function keywordVibe(vibe: string): TasteTag[] {
   const out: TasteTag[] = [];
   if (/\b(not|no|less)\b[^,.]*\b(loud|noisy)\b/.test(text)) out.push({ id: 'name:quiet', name: 'Quiet', concept: 'quiet' });
   for (const [k, names] of Object.entries(KEYWORDS)) {
-    if (text.includes(k)) names.forEach((n) => out.push({ id: `name:${n.toLowerCase()}`, name: n, concept: k }));
+    // Whole words only ('view' is not in 'reviews'), and skip what the text rules out ('nothing fancy', 'not too lively').
+    const asked = new RegExp(`\\b${k}`).test(text);
+    const ruledOut = k !== 'stuffy' && new RegExp(`\\b(not|no|nothing|never|without|less)\\b(\\s+\\w+)?\\s+${k}`).test(text);
+    if (asked && !ruledOut) names.forEach((n) => out.push({ id: `name:${n.toLowerCase()}`, name: n, concept: k }));
   }
   return uniqueByName(out);
 }

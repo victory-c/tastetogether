@@ -99,9 +99,11 @@ const handler = createMcpHandler(
         if (failure || picks.length === 0) {
           return { content: [{ type: 'text', text: failure ?? 'No match found.' }], isError: Boolean(failure) };
         }
-        const link = SITE
-          ? `${SITE}/match?${new URLSearchParams({ a: encodePerson(pa), b: encodePerson(pb), o: occasion, area, go: '1' })}`
-          : undefined;
+        // Same params as the app's share link, so the link reruns this exact match (vibe and price included).
+        const q = new URLSearchParams({ a: encodePerson(pa), b: encodePerson(pb), o: occasion, area, go: '1' });
+        if (price_max) q.set('p', String(price_max));
+        if (vibe?.trim()) q.set('v', vibe.trim());
+        const link = SITE ? `${SITE}/match?${q}` : undefined;
         const result = {
           resolved_favorites: { [a.name]: ia.map((i) => i.name), [b.name]: ib.map((i) => i.name) },
           shared_taste: dna?.shared.map((t) => t.name) ?? [],
