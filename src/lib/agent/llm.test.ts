@@ -23,4 +23,12 @@ describe('keywordVibe', () => {
   it('reads negation and never repeats a tag', () => {
     expect(keywordVibe('cozy and quiet, not too loud').map((t) => t.name)).toEqual(['Quiet', 'Cozy']);
   });
+
+  it('groups synonyms under the word that asked for them', () => {
+    expect(keywordVibe('romantic and quiet').map((t) => [t.name, t.concept])).toEqual([
+      ['Quiet', 'quiet'],
+      ['Romantic', 'romantic'],
+      ['Intimate', 'romantic'],
+    ]);
+  });
 });

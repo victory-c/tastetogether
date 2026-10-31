@@ -78,6 +78,7 @@ const handler = createMcpHandler(
           vibe,
         };
         let picks: Pick[] = [];
+        let note: string | undefined;
         let dna: TasteDna | undefined;
         let failure: string | undefined;
         const trace: string[] = [];
@@ -85,7 +86,10 @@ const handler = createMcpHandler(
         for await (const e of runMatch(req, { narrateSpares: false })) {
           if (e.type === 'step' && e.status === 'done') trace.push(`${e.label}${e.detail ? ` — ${e.detail}` : ''}`);
           if (e.type === 'dna') dna = e.dna;
-          if (e.type === 'result') picks = e.picks;
+          if (e.type === 'result') {
+            picks = e.picks;
+            note = e.relaxed;
+          }
           if (e.type === 'narration') {
             const whys = new Map(e.whys.map((w) => [w.id, w.why]));
             picks = picks.map((p) => ({ ...p, why: whys.get(p.id) ?? p.why }));
@@ -103,6 +107,7 @@ const handler = createMcpHandler(
           shared_taste: dna?.shared.map((t) => t.name) ?? [],
           occasion: OCCASIONS[occasion].label,
           picks: picks.slice(0, 3).map((p) => summarize(p, a.name, b.name)),
+          note,
           agent_trace: trace,
           open_in_app: link,
         };

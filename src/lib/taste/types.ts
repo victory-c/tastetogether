@@ -46,6 +46,8 @@ export interface TasteTag {
   id: string;
   name: string;
   score?: number;
+  /** Vibe tags only: the part of the request this tag answers. Tags that share one are synonyms. */
+  concept?: string;
 }
 
 export interface TasteDna {

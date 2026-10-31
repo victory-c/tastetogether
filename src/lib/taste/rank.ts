@@ -7,16 +7,25 @@
  *   2. regress out place popularity to isolate the taste-specific part (the "lift"),
  *   3. blend overall fit and taste lift into a 0-1 percentile fit.
  * The duo score then favours the place where the *less happy* person is still happy (min),
- * with a smaller weight on the average and on occasion/vibe matches.
+ * with a smaller weight on the average and on occasion tags. A vibe the duo typed counts for more, but it can only
+ * lift a place that still works for the less happy person, so it reorders good fits instead of overriding fairness.
  */
+
+/** The most a full match of the typed vibe can add to the duo score. */
+export const VIBE_WEIGHT = 0.3;
+/** The less happy person's fit at which a vibe match starts to count, and the width of the ramp to full weight. */
+const VIBE_GATE_FROM = 0.4;
+const VIBE_GATE_RAMP = 0.25;
 
 export interface PoolItem {
   id: string;
   popularity: number;
   affinityA: number;
   affinityB: number;
-  /** 0-1 bonus from occasion and vibe tag matches. */
+  /** 0-1 bonus from occasion tag matches. */
   contextBonus: number;
+  /** 0-1 share of the typed vibe's concepts this place matches; 0 when there is no vibe. */
+  vibeMatch?: number;
   /** 0-1 soft penalty (e.g. closed today). */
   penalty?: number;
   /** Business rating 0-5 when known. */
@@ -30,6 +39,15 @@ export interface RankedItem {
   rankA: number;
   rankB: number;
   fair: number;
+}
+
+/**
+ * Share of the vibe's concepts that a place satisfies. Each concept is a list of interchangeable tag names
+ * (e.g. "Vegetarian" and "Vegetarian meals" both answer "vegetarian friendly"), so synonyms never count twice.
+ */
+export function vibeShare(placeTags: Set<string>, concepts: string[][]): number {
+  if (concepts.length === 0) return 0;
+  return concepts.filter((names) => names.some((n) => placeTags.has(n.toLowerCase()))).length / concepts.length;
 }
 
 function mean(xs: number[]) {
@@ -101,7 +119,17 @@ export function rankDuo(pool: PoolItem[]): RankedItem[] {
       const fa = fitA[i] ?? 0;
       const fb = fitB[i] ?? 0;
       const quality = p.rating ? Math.max(0, Math.min(1, (p.rating - 3.5) / 1.5)) : 0.3;
-      const fair = 0.6 * Math.min(fa, fb) + 0.2 * ((fa + fb) / 2) + 0.14 * p.contextBonus + 0.06 * quality - 0.15 * (p.penalty ?? 0);
+      const floor = Math.min(fa, fb);
+      const penalty = p.penalty ?? 0;
+      // No vibe lift for a weak fit for either person, or for a place that is closed when you would go.
+      const gate = Math.max(0, Math.min(1, (floor - VIBE_GATE_FROM) / VIBE_GATE_RAMP)) * (1 - penalty);
+      const fair =
+        0.6 * floor +
+        0.2 * ((fa + fb) / 2) +
+        0.14 * p.contextBonus +
+        VIBE_WEIGHT * (p.vibeMatch ?? 0) * gate +
+        0.06 * quality -
+        0.15 * penalty;
       return { id: p.id, fitA: fa, fitB: fb, rankA: rankA[i] ?? pool.length, rankB: rankB[i] ?? pool.length, fair };
     })
     .sort((x, y) => y.fair - x.fair);
