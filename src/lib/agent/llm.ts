@@ -88,7 +88,8 @@ const vibeSchema = z.object({
   priceMax: z.number().int().min(1).max(4).nullable().describe('Price ceiling 1-4 if the request implies one, else null'),
 });
 
-export type VibePlan = z.infer<typeof vibeSchema>;
+/** Boost tags carry the search keyword that found them as their concept, so synonyms are scored as one ask. */
+export type VibePlan = Omit<z.infer<typeof vibeSchema>, 'boost'> & { boost: TasteTag[] };
 
 /**
  * Agent step: turn a free-text vibe ("cozy, not too loud, we're broke students") into real Qloo
@@ -99,6 +100,7 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
   const key = `vibe|${LLM_MODEL}|${occasion}|${vibe.trim().toLowerCase().slice(0, 300)}`;
   const remembered = memoGet<VibePlan>(key);
   if (remembered) return remembered;
+  // Tag id → the keyword whose search returned it first.
   const seen = new Map<string, string>();
   let searchFailed = false;
   const agent = new ToolLoopAgent({
@@ -106,8 +108,10 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
     instructions:
       "You translate a diner's request into Qloo restaurant tags. In your FIRST step, call searchTags once for every " +
       "concept in the request, all in parallel in that same step (at most 4 calls; short keywords, one concept each, e.g. 'cozy', " +
-      "'quiet', 'vegetarian', 'ramen'). Then answer without searching again. Only return tag ids that appeared in searchTags " +
-      'results. Prefer ambience, noise level, dietary, cuisine and event tags. Output in English.',
+      "'quiet', 'vegetarian', 'ramen'). Search only for what the request says: the occasion is scored separately, so do not " +
+      'add tags for it. Then answer without searching again. Only return tag ids that appeared in searchTags results. ' +
+      'Prefer ambience, noise level, dietary, cuisine and event tags. When the request names a noise level, also avoid the ' +
+      "opposite noise level tag (e.g. 'not too loud' avoids Loud). Output in English.",
     tools: {
       searchTags: tool({
         description: "Search Qloo's tag taxonomy for restaurant-relevant tags matching a short keyword.",
@@ -115,7 +119,8 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
         execute: async ({ keyword }) => {
           try {
             const tags = await searchPlaceTags(keyword, stats);
-            tags.forEach((t) => seen.set(t.id, t.name));
+            const concept = keyword.trim().toLowerCase();
+            tags.forEach((t) => seen.has(t.id) || seen.set(t.id, concept));
             return tags;
           } catch (err) {
             searchFailed = true;
@@ -136,7 +141,11 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
   const out = result.output;
   if (!out) return null;
   const valid = (xs: { id: string; name: string }[]) => uniqueByName(xs.filter((t) => seen.has(t.id))).slice(0, 5);
-  const plan = { boost: valid(out.boost), avoid: valid(out.avoid), priceMax: out.priceMax };
+  const plan: VibePlan = {
+    boost: valid(out.boost).map((t) => ({ id: t.id, name: t.name, concept: seen.get(t.id) })),
+    avoid: valid(out.avoid),
+    priceMax: out.priceMax,
+  };
   // An empty plan falls back to keywords; a plan built on failed searches is used once but not remembered.
   if (plan.boost.length === 0 && plan.avoid.length === 0 && !plan.priceMax) return null;
   if (!searchFailed) memoSet(key, plan);
@@ -170,9 +179,12 @@ const KEYWORDS: Record<string, string[]> = {
 export function keywordVibe(vibe: string): TasteTag[] {
   const text = vibe.toLowerCase();
   const out: TasteTag[] = [];
-  if (/\b(not|no|less)\b[^,.]*\b(loud|noisy)\b/.test(text)) out.push({ id: 'name:quiet', name: 'Quiet' });
+  if (/\b(not|no|less)\b[^,.]*\b(loud|noisy)\b/.test(text)) out.push({ id: 'name:quiet', name: 'Quiet', concept: 'quiet' });
   for (const [k, names] of Object.entries(KEYWORDS)) {
-    if (text.includes(k)) names.forEach((n) => out.push({ id: `name:${n.toLowerCase()}`, name: n }));
+    // Whole words only ('view' is not in 'reviews'), and skip what the text rules out ('nothing fancy', 'not too lively').
+    const asked = new RegExp(`\\b${k}`).test(text);
+    const ruledOut = k !== 'stuffy' && new RegExp(`\\b(not|no|nothing|never|without|less)\\b(\\s+\\w+)?\\s+${k}`).test(text);
+    if (asked && !ruledOut) names.forEach((n) => out.push({ id: `name:${n.toLowerCase()}`, name: n, concept: k }));
   }
   return uniqueByName(out);
 }

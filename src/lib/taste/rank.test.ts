@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { percentiles, rankDuo, residuals, zScores, type PoolItem } from './rank';
+import { percentiles, rankDuo, residuals, vibeShare, zScores, type PoolItem } from './rank';
 
 const item = (id: string, popularity: number, affinityA: number, affinityB: number, contextBonus = 0): PoolItem => ({
   id,
@@ -24,6 +24,19 @@ describe('normalisation helpers', () => {
 
   it('percentiles give the max 1 and the min 0', () => {
     expect(percentiles([3, 1, 2])).toEqual([1, 0, 0.5]);
+  });
+});
+
+describe('vibeShare', () => {
+  const place = new Set(['vegetarian', 'vegetarian meals', 'outdoor seating']);
+
+  it('counts each ask once, however many of its synonyms a place has', () => {
+    expect(vibeShare(place, [['Vegetarian', 'Vegetarian meals'], ['Quiet']])).toBe(0.5);
+    expect(vibeShare(place, [['Vegetarian'], ['Outdoor seating']])).toBe(1);
+  });
+
+  it('is 0 without a vibe', () => {
+    expect(vibeShare(place, [])).toBe(0);
   });
 });
 
@@ -53,6 +66,29 @@ describe('rankDuo', () => {
       item('filler-2', 0.7, 0.75, 0.75),
     ]);
     expect(ranked[0]?.id).toBe('niche-fit');
+  });
+
+  it('lets a typed vibe lift a place that still fits both people', () => {
+    const pool = (vibeMatch: number) => [
+      item('best', 0.5, 0.95, 0.95),
+      { ...item('good', 0.5, 0.9, 0.9), vibeMatch },
+      item('mid', 0.5, 0.8, 0.8),
+      item('low', 0.5, 0.7, 0.7),
+      item('lowest', 0.5, 0.6, 0.6),
+    ];
+    expect(rankDuo(pool(0))[0]?.id).toBe('best');
+    expect(rankDuo(pool(1))[0]?.id).toBe('good');
+  });
+
+  it('gives no vibe lift to a weak fit for either person or to a place closed at plan time', () => {
+    const fairOf = (pool: PoolItem[], id: string) => rankDuo(pool).find((r) => r.id === id)!.fair;
+    const base = [item('a', 0.5, 0.9, 0.9), item('b', 0.5, 0.8, 0.8), item('c', 0.5, 0.7, 0.7)];
+    const lopsided = (vibeMatch: number) => [...base, { ...item('one-sided', 0.5, 0.95, 0.6), vibeMatch }];
+    expect(fairOf(lopsided(1), 'one-sided')).toBe(fairOf(lopsided(0), 'one-sided'));
+    for (const penalty of [1, 0.8]) {
+      const closed = (vibeMatch: number) => [...base, { ...item('closed', 0.5, 0.95, 0.95), vibeMatch, penalty }];
+      expect(fairOf(closed(1), 'closed')).toBe(fairOf(closed(0), 'closed'));
+    }
   });
 
   it('returns ranks per person', () => {

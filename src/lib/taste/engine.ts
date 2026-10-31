@@ -14,7 +14,7 @@ import { entitiesOf, qlooGet, QlooError, type CallStats } from '../qloo/client';
 import type { QlooCompareResponse, QlooCompareTag, QlooEntity, QlooInsightsResponse } from '../qloo/types';
 import { dinnerBeforeDoors, openStatus, planTime } from './hours';
 import { OCCASIONS } from './occasions';
-import { rankDuo, type PoolItem } from './rank';
+import { rankDuo, vibeShare, type PoolItem } from './rank';
 import type { Driver, MatchEvent, MatchRequest, Person, PersonFit, Pick, TasteDna, TasteTag } from './types';
 
 const RESTAURANT_TAG = 'urn:tag:genre:place:restaurant';
@@ -71,6 +71,16 @@ function tagNames(e: QlooEntity): Set<string> {
   for (const t of e.tags ?? []) s.add(t.name.toLowerCase());
   for (const t of e.properties?.good_for ?? []) s.add(t.name.toLowerCase());
   return s;
+}
+
+/** Groups vibe tags by the part of the request they answer; a tag without a concept stands alone. */
+function vibeConcepts(tags: TasteTag[]): string[][] {
+  const groups = new Map<string, string[]>();
+  for (const t of tags) {
+    const key = t.concept ?? t.name.toLowerCase();
+    groups.set(key, [...(groups.get(key) ?? []), t.name]);
+  }
+  return [...groups.values()];
 }
 
 function shares(e: QlooEntity | undefined): Map<string, number> {
@@ -340,8 +350,11 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
     // 4. Negotiate: per-person normalised fit, then the fairest shared pick.
     yield { type: 'step', id: 'negotiate', label: 'Negotiating the fairest table for both of you', status: 'running' };
     const tNeg = now();
-    const boostNames = new Set([...occ.boost, ...vibeTags.map((t) => t.name)].map((n) => n.toLowerCase()));
+    // The occasion and the typed vibe are scored apart: the vibe is what the duo asked for, so it weighs more,
+    // and a vibe tag that the occasion also likes (e.g. "Quiet" on a date) still counts.
+    const boostNames = new Set(occ.boost.map((n) => n.toLowerCase()));
     const penaltyNames = new Set(occ.penalty.map((n) => n.toLowerCase()));
+    const concepts = vibeConcepts(vibeTags);
     const items: PoolItem[] = scored.map((e) => {
       const names = tagNames(e);
       const hits = [...boostNames].filter((n) => names.has(n)).length;
@@ -352,6 +365,7 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
         affinityA: aById.get(e.entity_id)!.query!.affinity!,
         affinityB: bById.get(e.entity_id)!.query!.affinity!,
         contextBonus: Math.max(0, Math.min(1, hits / 3 - misses * 0.5)),
+        vibeMatch: vibeShare(names, concepts),
         penalty: availabilityPenalty(openStatus(e.properties?.hours, when).kind),
         rating: e.properties?.business_rating,
       };
@@ -366,6 +380,23 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
     };
     const top = ranked.slice(0, RESULT_COUNT);
     const nameOf = (id: string) => byId.get(id)!.name;
+    // Name any part of the vibe that no on-screen pick has, instead of looking like it was ignored.
+    const one = req.mode === 'one';
+    const shown = top.slice(0, one ? 1 : 3).map((r) => tagNames(byId.get(r.id)!));
+    const missed = concepts.filter((c) => shown.every((names) => vibeShare(names, [c]) === 0));
+    const missedLabel =
+      missed.length > 1
+        ? `${missed
+            .slice(0, -1)
+            .map((c) => c[0])
+            .join(', ')} or ${missed.at(-1)![0]}`
+        : missed[0]?.[0];
+    const best = one ? 'this is the best fit' : 'these are the best fits';
+    const vibeNote = !missed.length
+      ? undefined
+      : scored.some((e) => vibeShare(tagNames(e), missed) > 0)
+        ? `No place tagged ${missedLabel} made your ${one ? 'top pick' : 'top three'}; ${best} for both of you.`
+        : `None of the ${scored.length} spots we scored is tagged ${missedLabel}; ${best} for both of you.`;
     yield {
       type: 'contrast',
       popular: popularBaseline.slice(0, 3),
@@ -480,7 +511,7 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
       type: 'result',
       picks,
       headline: remembered[0]?.headline,
-      relaxed,
+      relaxed: [relaxed, vibeNote].filter(Boolean).join(' ') || undefined,
       when: when.label,
       stats: {
         qlooCalls: stats.calls,

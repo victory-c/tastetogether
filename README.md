@@ -75,7 +75,7 @@ For each person, [`rank.ts`](src/lib/taste/rank.ts):
 2. regresses out place popularity to isolate the taste-specific part (“lift”);
 3. blends overall fit and lift into a 0–1 percentile fit.
 
-Duo score = `0.6·min(fitA, fitB) + 0.2·mean + 0.14·occasion/vibe match + 0.06·rating − 0.15·closed at plan time`. The `min` term means the pick must work for the less-excited person. “Most shaped by” compares each favorite's explainability share for this place with its average share across the pool, and names a favorite only when it clearly stands out. Unit tests cover the ranking, including that raw popularity cannot win on its own.
+Duo score = `0.6·min(fitA, fitB) + 0.2·mean + 0.14·occasion match + 0.3·vibe match·gate + 0.06·rating − 0.15·closed at plan time`. The `min` term means the pick must work for the less-excited person. The vibe match is the share of the typed asks a place meets (synonyms from one tag search count once). The gate grows from 0 to 1 as the less-excited person's fit rises from 0.4 to 0.65 and is 0 for a place that is not open at plan time, so a vibe reorders good fits but never overrides fairness. If part of the vibe is in none of the on-screen picks, the result says so. “Most shaped by” compares each favorite's explainability share for this place with its average share across the pool, and names a favorite only when it clearly stands out. Unit tests cover the ranking, including that raw popularity cannot win on its own.
 
 ### Honesty by design
 

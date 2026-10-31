@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Narration, NarrationFacts, VibePlan } from '../agent/llm';
 import { qlooGet } from '../qloo/client';
 import { runMatch } from './engine';
 import { DEFAULT_AREA } from './occasions';
+import { VIBE_WEIGHT } from './rank';
 import type { MatchEvent, MatchRequest } from './types';
 
 // Synthetic stand-ins for Qloo and the LLM: no network, no real Qloo data.
@@ -12,6 +13,8 @@ const llm = vi.hoisted(() => ({
   vibe: null as VibePlan | null,
   narrate: vi.fn<(facts: NarrationFacts) => Promise<Narration | null>>(),
 }));
+// By default the two people like opposite ends of the pool; with sameTaste they agree, so the top places fit both.
+const qloo = vi.hoisted(() => ({ sameTaste: false }));
 
 vi.mock('../qloo/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../qloo/client')>()),
@@ -29,9 +32,10 @@ vi.mock('../agent/llm', async (importOriginal) => ({
 const PLACES = Array.from({ length: 10 }, (_, i) => ({
   entity_id: `place-${i}`,
   name: `Place ${i}`,
-  popularity: 0.5 + i / 100,
+  // Flat popularity, so a person's fit follows their affinity order exactly.
+  popularity: 0.5,
   location: { lat: 37.871, lon: -122.268 },
-  tags: [],
+  tags: [] as { id: string; name: string }[],
   properties: { primary_genre: { id: 'urn:tag:genre:place:restaurant:italian' }, price_level: i % 2 === 0 ? 1 : 3 },
 }));
 
@@ -48,7 +52,7 @@ function fakeQloo(path: string, params: Record<string, unknown>) {
       results: {
         entities: scoring.split(',').map((id, i) => ({
           ...PLACES.find((p) => p.entity_id === id)!,
-          query: { affinity: forA ? 0.9 - i * 0.02 : 0.6 + i * 0.02 },
+          query: { affinity: forA || qloo.sameTaste ? 0.9 - i * 0.02 : 0.6 + i * 0.02 },
         })),
       },
     };
@@ -179,5 +183,92 @@ describe('runMatch explanations', () => {
     expect(scoutedAtOne).toBe(true);
     expect(result.picks.length).toBeGreaterThan(0);
     expect(result.picks.every((p) => (p.priceLevel ?? 0) <= 1)).toBe(true);
+  });
+});
+
+describe('runMatch vibe ranking', () => {
+  const quiet: VibePlan = { boost: [{ id: 'urn:tag:noise_level:qloo:quiet', name: 'Quiet', concept: 'quiet' }], avoid: [], priceMax: null };
+  const tag = (index: number, name: string) => PLACES[index]!.tags.push({ id: `tag-${name}`, name });
+
+  beforeEach(() => {
+    llm.on = false;
+    llm.vibe = null;
+    qloo.sameTaste = true;
+    PLACES.forEach((p) => (p.tags = []));
+  });
+
+  afterEach(() => {
+    qloo.sameTaste = false;
+    PLACES.forEach((p) => (p.tags = []));
+  });
+
+  it('lifts a good fit that matches the vibe, even when the occasion already likes that tag', async () => {
+    tag(3, 'Quiet');
+    expect(resultOf(await collect()).picks[0]!.id).toBe('place-0');
+
+    llm.vibe = quiet;
+    const result = resultOf(await collect({ ...REQ, vibe: 'quiet' }));
+    expect(result.picks[0]).toMatchObject({ id: 'place-3', matchedVibe: ['Quiet'] });
+    expect(result.relaxed).toBeUndefined();
+  });
+
+  it('does not lift a place that is a poor fit, and says the vibe went unmatched', async () => {
+    // place-5 sits just above the 0.4 gate: an ungated lift would carry it into the top three.
+    tag(5, 'Quiet');
+    llm.vibe = quiet;
+    const result = resultOf(await collect({ ...REQ, vibe: 'quiet' }));
+    expect(result.picks.slice(0, 3).map((p) => p.id)).toEqual(['place-0', 'place-1', 'place-2']);
+    expect(result.relaxed).toBe('No place tagged Quiet made your top three; these are the best fits for both of you.');
+  });
+
+  it('adds the vibe lift once, apart from the occasion bonus', async () => {
+    tag(0, 'Outdoor seating'); // not a date-night boost tag
+    const fairOf = async (vibe?: string) =>
+      resultOf(await collect(vibe ? { ...REQ, vibe } : REQ)).picks.find((p) => p.id === 'place-0')!.fair;
+    const before = await fairOf();
+    llm.vibe = { boost: [{ id: 'o', name: 'Outdoor seating', concept: 'outdoor' }], avoid: [], priceMax: null };
+    expect((await fairOf('outdoor seating')) - before).toBeCloseTo(VIBE_WEIGHT, 6);
+  });
+
+  it('names the part of the vibe that no on-screen pick has', async () => {
+    [0, 1, 2].forEach((i) => tag(i, 'Vegetarian'));
+    tag(8, 'Quiet');
+    llm.vibe = { ...quiet, boost: [...quiet.boost, { id: 'v', name: 'Vegetarian', concept: 'vegetarian' }] };
+    const result = resultOf(await collect({ ...REQ, vibe: 'quiet, vegetarian' }));
+    expect(result.relaxed).toBe('No place tagged Quiet made your top three; these are the best fits for both of you.');
+  });
+
+  it('says when no scored place has the tag at all', async () => {
+    llm.vibe = quiet;
+    const result = resultOf(await collect({ ...REQ, vibe: 'quiet' }));
+    expect(result.relaxed).toBe('None of the 10 spots we scored is tagged Quiet; these are the best fits for both of you.');
+  });
+
+  it('checks only the on-screen picks: a match at #3 is off screen in mode one', async () => {
+    tag(4, 'Quiet');
+    llm.vibe = quiet;
+    const result = resultOf(await collect({ ...REQ, vibe: 'quiet', mode: 'one' }));
+    expect(result.picks.slice(0, 3).map((p) => p.id)).toEqual(['place-0', 'place-1', 'place-4']);
+    expect(result.relaxed).toBe('No place tagged Quiet made your top pick; this is the best fit for both of you.');
+  });
+
+  it('scores synonyms from one search as a single ask', async () => {
+    // place-1 fits better but only has the two vegetarian synonyms; place-2 answers both asks, so it wins.
+    // Counting tags instead of asks would score them 2 of 3 each and keep place-1 ahead.
+    tag(1, 'Vegetarian');
+    tag(1, 'Vegetarian meals');
+    tag(2, 'Vegetarian');
+    tag(2, 'Outdoor seating');
+    llm.vibe = {
+      boost: [
+        { id: 'v1', name: 'Vegetarian', concept: 'vegetarian' },
+        { id: 'v2', name: 'Vegetarian meals', concept: 'vegetarian' },
+        { id: 'o', name: 'Outdoor seating', concept: 'outdoor' },
+      ],
+      avoid: [],
+      priceMax: null,
+    };
+    const ids = resultOf(await collect({ ...REQ, vibe: 'vegetarian, outdoor seating' })).picks.map((p) => p.id);
+    expect(ids.indexOf('place-2')).toBeLessThan(ids.indexOf('place-1'));
   });
 });
