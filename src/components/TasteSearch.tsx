@@ -12,11 +12,13 @@ export function TasteSearch({
   onPick,
   disabled,
   placeholder,
+  onOpenChange,
 }: {
   side: 'a' | 'b';
   onPick: (i: Interest) => void;
   disabled?: boolean;
   placeholder: string;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<Interest[]>([]);
@@ -60,6 +62,11 @@ export function TasteSearch({
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
+
+  useEffect(() => {
+    onOpenChange?.(open && q.trim().length >= 2);
+    return () => onOpenChange?.(false);
+  }, [open, q, onOpenChange]);
 
   const shown = q.trim().length >= 2 ? results : [];
 
@@ -108,6 +115,7 @@ export function TasteSearch({
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
+          aria-activedescendant={open && shown[active] ? `${listId}-option-${active}` : undefined}
           aria-label={placeholder}
         />
         {loading && q.trim().length >= 2 && <Loader2 className="size-4 shrink-0 animate-spin text-ink-faint" aria-label="Searching" />}
@@ -125,6 +133,7 @@ export function TasteSearch({
           {shown.map((r, i) => (
             <li
               key={r.id}
+              id={`${listId}-option-${i}`}
               role="option"
               aria-selected={i === active}
               onMouseEnter={() => setActive(i)}

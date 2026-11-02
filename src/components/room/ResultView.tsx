@@ -36,7 +36,7 @@ export function ResultView({
       {result.stale && <Notice tone="warn">{copy.room.stale}</Notice>}
       {result.historyIncomplete && <Notice tone="warn">{copy.room.historyWarning}</Notice>}
       {result.unknowns.length > 0 && (
-        <div className="text-sm text-stone-500">
+        <div className="text-sm text-ink-soft">
           <h3 className="font-medium">{copy.room.unknowns}</h3>
           <ul className="list-disc pl-5 text-sm">
             {result.unknowns.map((item, i) => (
@@ -58,7 +58,7 @@ export function ResultView({
             </Notice>
           )}
           {result.exclusionSummary.length > 0 && (
-            <p className="text-sm text-stone-500">
+            <p className="text-sm text-ink-soft">
               {copy.room.filteredOut} {result.exclusionSummary.map(({ reason, count }) => copy.exclusionCounts[reason](count)).join(' · ')}
             </p>
           )}

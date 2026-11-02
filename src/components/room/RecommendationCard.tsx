@@ -37,7 +37,7 @@ export function RecommendationCard({
       )}
       <div className="space-y-3 p-4">
         <h3 className={`${large ? 'text-2xl' : 'text-xl'} break-words font-semibold`}>{card.name}</h3>
-        <p className="text-sm text-stone-600">{card.address ?? copy.room.addressUnknown}</p>
+        <p className="text-sm text-ink-soft">{card.address ?? copy.room.addressUnknown}</p>
         <div className="flex flex-wrap gap-2">
           {card.cuisines.slice(0, 3).map((cuisine, i) => (
             <Badge key={i}>{cuisine}</Badge>
@@ -68,7 +68,7 @@ export function RecommendationCard({
           })}
         </div>
         {card.hoursText && <p className="text-sm">{card.hoursText}</p>}
-        <p className="text-sm text-stone-500">{copy.labels.waitUnavailable}</p>
+        <p className="text-sm text-ink-soft">{copy.labels.waitUnavailable}</p>
         {card.reasons.length > 0 && (
           <ul className="list-disc pl-5">
             {card.reasons.map((reason, i) => (
@@ -79,19 +79,14 @@ export function RecommendationCard({
         {card.links.length > 0 && (
           <div className="flex flex-wrap gap-3">
             {card.links.map((link, i) => (
-              <a className="text-orange-700 underline" key={i} href={link.url} target="_blank" rel="noopener noreferrer">
+              <a className="text-a-deep underline" key={i} href={link.url} target="_blank" rel="noopener noreferrer">
                 {link.label}
               </a>
             ))}
           </div>
         )}
         <div>
-          <button
-            type="button"
-            className="font-medium text-orange-700 underline"
-            aria-expanded={whyOpen}
-            onClick={() => setWhyOpen(!whyOpen)}
-          >
+          <button type="button" className="font-medium text-a-deep underline" aria-expanded={whyOpen} onClick={() => setWhyOpen(!whyOpen)}>
             {copy.room.why}
           </button>
           {whyOpen && (

@@ -9,14 +9,14 @@ export function ComparisonPanel({ result, names }: { result: RecommendationResul
   if (result.status !== 'success' || result.perParticipant.length !== 2) return null;
 
   return (
-    <section className="rounded-xl border border-orange-100 bg-orange-50/50 p-4">
-      <button type="button" className="font-medium text-orange-700 underline" aria-expanded={open} onClick={() => setOpen(!open)}>
+    <section className="rounded-xl border border-line bg-cream/60 p-4">
+      <button type="button" className="font-medium text-a-deep underline" aria-expanded={open} onClick={() => setOpen(!open)}>
         {copy.room.seeComparison}
       </button>
       {open && (
         <div className="mt-4 space-y-3">
           <h2 className="text-xl font-semibold">{copy.room.comparison}</h2>
-          <p className="text-sm text-stone-600">{copy.room.comparisonExplanation}</p>
+          <p className="text-sm text-ink-soft">{copy.room.comparisonExplanation}</p>
           <div className="grid gap-4 sm:grid-cols-3">
             {result.perParticipant.map((person) => (
               <div key={person.key} className="min-w-0">

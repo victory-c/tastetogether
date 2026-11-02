@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowUpRight, Share2, X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { openLabel } from '@/lib/client/format';
 import type { Pick } from '@/lib/taste/types';
@@ -27,12 +27,21 @@ export function Celebration({
   onShare: () => void;
   copied: boolean;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!pick) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCloseRef.current();
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [pick, onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      previous?.focus();
+    };
+  }, [pick]);
 
   return (
     <AnimatePresence>
@@ -43,6 +52,8 @@ export function Celebration({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
+          ref={dialogRef}
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-label={`Plan: ${pick.name}`}

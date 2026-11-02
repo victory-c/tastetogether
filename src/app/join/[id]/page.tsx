@@ -46,7 +46,7 @@ export default function JoinPage() {
     }
   }
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-6">
+    <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6">
       <h1 className="text-3xl font-bold">{copy.room.joinTitle}</h1>
       {message && <Notice tone="error">{message}</Notice>}
       {!loaded ? (

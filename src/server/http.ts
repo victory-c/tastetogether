@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 import type { ZodType } from 'zod';
 import type { ApiError, ApiErrorCode } from '@/lib/api-types';
 import { copy } from '@/copy/en';
-import { requireUserId } from './auth/session';
+import { currentUserId, requireUserId } from './auth/session';
+import { rateLimit } from './rate-limit';
 
 const STATUS: Record<ApiErrorCode, number> = {
   unauthenticated: 401,
@@ -58,6 +59,11 @@ export async function parseBody<T>(req: Request, schema: ZodType<T>): Promise<T>
 export function withUser<C>(handler: (req: Request, userId: string, ctx: C) => Promise<Response>) {
   return async (req: Request, ctx: C): Promise<Response> => {
     try {
+      // A browser with no identity yet gets one, but not without bound: a scripted client can't mint thousands.
+      if (!(await currentUserId())) {
+        const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'anon';
+        rateLimit(`identity:${ip}`, 30, 10 * 60_000);
+      }
       const userId = await requireUserId();
       return await handler(req, userId, ctx);
     } catch (err) {

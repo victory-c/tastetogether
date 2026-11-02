@@ -11,6 +11,8 @@ export interface MatchBody {
   priceMax: number | null;
   areaId?: string;
   near?: { lat: number; lon: number };
+  /** Widen the search around the same point; set only by the no-match recovery. */
+  radiusScale?: number;
   mode: 'three' | 'one';
   vibe?: string;
   exclude?: string[];

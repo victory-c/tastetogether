@@ -93,7 +93,7 @@ export function History({ readOnly }: { readOnly: boolean }) {
     <section className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold">{copy.taste.history}</h2>
-        <p className="mt-1 text-sm text-stone-600">{copy.taste.historyHint}</p>
+        <p className="mt-1 text-sm text-ink-soft">{copy.taste.historyHint}</p>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
       {loading && <p role="status">{copy.taste.loading}</p>}
@@ -108,7 +108,7 @@ export function History({ readOnly }: { readOnly: boolean }) {
                 <Card key={m.id}>
                   <div className="space-y-2">
                     <h4 className="font-medium">{m.name}</h4>
-                    <p className="text-sm text-stone-600">{m.address || copy.taste.addressUnknown}</p>
+                    <p className="text-sm text-ink-soft">{m.address || copy.taste.addressUnknown}</p>
                     {!m.placeId && <Badge tone="warn">{copy.taste.unlinked}</Badge>}
                     <p className="text-sm">
                       {copy.taste.status}: {copy.taste[m.status]}

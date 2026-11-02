@@ -568,20 +568,41 @@ export async function* runMatch(
     };
     if (!writing) return;
 
-    const tasks = groups.map((f, i) => (remembered[i] ? null : narrate(f).catch((): Narration | null => null)));
+    // Keep the failure kind so the trace can say what happened instead of calling every failure a timeout.
+    let failure: 'timeout' | 'error' | 'rejected' | null = null;
+    const tasks = groups.map((f, i) =>
+      remembered[i]
+        ? null
+        : narrate(f).catch((err: unknown): Narration | null => {
+            failure = /timeout|timed out|abort/i.test(err instanceof Error ? `${err.name} ${err.message}` : String(err))
+              ? 'timeout'
+              : 'error';
+            return null;
+          }),
+    );
     let wroteShown = Boolean(remembered[0]);
     for (const [i, task] of tasks.entries()) {
       const story = task && (await task);
       if (!story) continue;
+      const whys = applyNarration(picks, story);
+      if (whys.length === 0) {
+        failure ??= 'rejected';
+        continue;
+      }
       if (i === 0) wroteShown = true;
-      yield { type: 'narration', headline: i === 0 ? story.headline : undefined, whys: applyNarration(picks, story), llm: LLM_MODEL };
+      yield { type: 'narration', headline: i === 0 ? story.headline : undefined, whys, llm: LLM_MODEL };
     }
+    const failureText = {
+      timeout: 'Fact templates (the LLM did not answer in time)',
+      error: 'Fact templates (the LLM returned an error)',
+      rejected: 'Fact templates (the LLM copy failed the facts check)',
+    };
     yield {
       type: 'step',
       id: 'explain',
       label: explainLabel,
       status: 'done',
-      detail: wroteShown ? writtenBy : 'Fact templates (the LLM did not answer in time)',
+      detail: wroteShown ? writtenBy : failureText[failure ?? 'error'],
       ms: Math.round(now() - tExp),
     };
   } catch (err) {
@@ -596,13 +617,33 @@ export async function* runMatch(
   }
 }
 
-/** Copies the LLM lines onto the picks they name and returns them; unknown ids and empty lines are ignored. */
+/**
+ * Claims the narration facts never contain, so a line making one is dropped in favour of the template:
+ * money, waits, opening times, bookings, awards and ratings, plus any non-English script.
+ */
+const UNGROUNDED = [
+  /\$\s?\d/,
+  /\b\d+\s?(?:min|mins|minutes?)\b/i,
+  /\bwait(?:s|ing)?\b/i,
+  /\b(?:open|opens|closes|closed|until)\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s?(?:am|pm)?\b/i,
+  /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/i,
+  /\b(?:reservations?|book a table|walk-?ins?)\b/i,
+  /\b(?:michelin|award|awards|stars?|rated|rating)\b/i,
+  /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\u0400-\u04ff]/,
+];
+
+/** True when a model-written line only restates what the facts could support. Exported for tests. */
+export function narrationIsGrounded(why: string): boolean {
+  return why.length > 0 && why.length <= 400 && !UNGROUNDED.some((re) => re.test(why));
+}
+
+/** Copies the LLM lines onto the picks they name and returns them; unknown ids, empty and ungrounded lines are ignored. */
 function applyNarration(picks: Pick[], story: Narration) {
   const whys: { id: string; why: string }[] = [];
   for (const s of story.picks) {
     const pick = picks.find((p) => p.id === s.id);
     const why = s.why.trim();
-    if (!pick || !why) continue;
+    if (!pick || !narrationIsGrounded(why)) continue;
     pick.why = why;
     whys.push({ id: pick.id, why });
   }

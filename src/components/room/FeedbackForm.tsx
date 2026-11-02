@@ -17,7 +17,7 @@ export function FeedbackForm({
   const [revisit, setRevisit] = useState('');
   return (
     <form
-      className="space-y-3 border-t border-stone-200 pt-3"
+      className="space-y-3 border-t border-line pt-3"
       onSubmit={(e) => {
         e.preventDefault();
         if (rating && revisit) void onVisited({ rating, revisitIntent: revisit === 'yes' });

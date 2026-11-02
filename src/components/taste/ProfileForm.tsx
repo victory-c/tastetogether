@@ -136,7 +136,7 @@ export function ProfileForm({ profile, onSaved }: { profile: ProfileDTO | null; 
           </fieldset>
           <div className="space-y-2">
             <h3 className="font-medium">{copy.taste.places}</h3>
-            <p className="text-sm text-stone-600">
+            <p className="text-sm text-ink-soft">
               {copy.taste.placeHint} {copy.taste.count(form.positiveEntities.length)}
             </p>
             <PlacePicker

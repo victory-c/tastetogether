@@ -1,8 +1,23 @@
 # Manual acceptance guide
 
+## Taste flow (`/match`), the main experience
+
+1. **Cold demo.** In an incognito window open the site, click **Watch a live demo**. Expect picks within a few seconds; the trace shows real step timings, the vibe step reads "remembered from an earlier agent run" for sample duos, and the total shows the Qloo call count.
+2. **Open places first.** With a plan time when many places are closed (e.g. a Monday evening), confirm no on-screen pick says "Closed tonight" while the note says how many places were held back.
+3. **Before a show.** Open **Jess & Marco**; confirm the plan time is before doors and the picks are near the venue.
+4. **Your own tastes.** Click **Use your own taste**, add favorites for both people from the search suggestions (an explicit pick is required), type a vibe, run. Then **Try another** on one card, and after the spares are used, confirm the button reads "Search again for more".
+5. **Memory.** Choose a pick with **Let's go here**, return to the landing page and run the demo again: the chosen place must not reappear.
+6. **Share and invite.** Copy a share link (including a "Near me" plan and a Before-a-show plan) into another browser: the same plan and results load. Send an invite link; the second person adds their taste from their own browser.
+7. **Honest states.** With a very tight price and a small area, confirm `no_match` offers concrete ways to relax the plan and never shows an invented place. Unknown hours show as "Hours unverified"; no wait times or exact prices appear anywhere.
+8. **MCP.** Point an MCP client at `/api/mcp`, call `find_table_for_two` with two short favorite lists; confirm the result lists real places with ranks for both people and an `open_in_app` link, and that `taste_overlap` returns shared tags.
+9. **Limits.** Confirm a burst of requests from one browser eventually returns the friendly 429 message, and that the page recovers after waiting.
+
+## Rooms and saved profiles (classic flow: `/taste`, `/solo`, `/room`)
+
+
 This guide maps to PRD section 11. Record the date, environment, observed result, and any failure for each item. A missing control or behavior is a failure, not a pass. Use a valid Qloo key and live service for the end-to-end checks; use controlled test responses for rare data and error states. Do not substitute mock fixtures for the live demo.
 
-1. **Public demo and live Qloo.** Open the deployed site in an incognito window without private approval. Start the sample experience, confirm both people are labeled as samples, and request recommendations. Verify server-side request evidence shows real Qloo calls. If no public deployment exists, record this check as blocked and perform the local part separately.
+1. **Public demo and live Qloo.** Open the deployed site in an incognito window without private approval. Start the main flow's live demo (the classic rooms flow has no sample room entry any more), confirm the two people are labeled as samples, and request recommendations. Verify server-side request evidence shows real Qloo calls. If no public deployment exists, record this check as blocked and perform the local part separately.
 2. **Solo memory.** In a normal browser, create a profile with at least three resolved positive entities. Add a resolved place as visited, refresh, and verify the entry persists. Request a solo recommendation with visited-place exclusion on; verify that place is absent.
 3. **Two independent browsers.** Create a room in the normal browser and copy its invite link. Open the link in a separate incognito window, create or use a different profile, consent, and join. Verify both participants appear and each browser can access only its own full profile and history.
 4. **Shared exclusions and constraints.** Add different resolved visited places to each profile, then enable exclusion of places either person visited. Set cuisine exclusions, area and radius, and a price level. Confirm conditions in both browsers and request results. Check neither person's visited place appears and that known cuisine, location, and price constraints are respected. Unknown price must be identified as unverified.

@@ -27,7 +27,7 @@ const STEPS = [
   {
     icon: Scale,
     title: 'A fair pick, explained',
-    body: 'We remove the popularity effect and choose where the less-excited person is still happy. Every reason traces to Qloo.',
+    body: 'We factor out popularity and choose where the less-excited person is still happy. Every reason traces to Qloo.',
     api: 'feature.explainability',
   },
 ];
@@ -106,7 +106,7 @@ export default function Home() {
               Review apps rank what&apos;s popular. AI chatbots guess. Neither knows that a{' '}
               <span className="font-semibold text-a-deep">Gilmore Girls</span> fan and a{' '}
               <span className="font-semibold text-b-deep">Dune</span> obsessive might share a soft spot for the same candlelit dining room.{' '}
-              <span className="font-semibold text-ink">Qloo does</span> — its graph links 250M+ cultural entities to real places.
+              <span className="font-semibold text-ink">Qloo does</span> — its taste graph links music, film, TV and books to real places.
             </p>
           </div>
         </section>

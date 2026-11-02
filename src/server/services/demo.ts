@@ -13,6 +13,7 @@ import { DEMO_CONSTRAINTS, DEMO_PEOPLE } from './demo-data';
  */
 export async function loadDemo(visitorId: string): Promise<string> {
   await resetDemo(visitorId);
+  await purgeExpiredDemos().catch(() => undefined);
   const profileIds: string[] = [];
   for (const person of DEMO_PEOPLE) {
     const ownerId = `demo-${crypto.randomUUID()}`;
@@ -31,17 +32,29 @@ export async function loadDemo(visitorId: string): Promise<string> {
     state: 'pending_confirmation',
     expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
   });
-  // Both sample people "agree" up front so the one-minute demo can generate immediately.
+  // Both sample people "agree" up front so the sample room can generate immediately.
   await sessionRepo.setConfirmed(s.id, 'A', s.version);
   await sessionRepo.setConfirmed(s.id, 'B', s.version);
   return s.id;
 }
 
 export async function resetDemo(visitorId: string): Promise<void> {
+  await purgeDemoSessions('s.owner_id = ?', [visitorId]);
+}
+
+const DEMO_TTL_MS = 48 * 60 * 60 * 1000;
+
+/** Sample rooms nobody reset are deleted after two days, so demo rows never pile up. Called on each load. */
+export async function purgeExpiredDemos(): Promise<void> {
+  await purgeDemoSessions('s.created_at < ?', [new Date(Date.now() - DEMO_TTL_MS).toISOString()]);
+}
+
+/** Deletes the given demo rooms with their sample profiles, memories, runs, feedback and throwaway users. */
+async function purgeDemoSessions(where: string, args: (string | number)[]): Promise<void> {
   const sessions = await all<{ id: string; participant_a: string; participant_b: string | null }>(
     `SELECT s.id, s.participant_a, s.participant_b FROM match_sessions s JOIN profiles p ON p.id = s.participant_a
-     WHERE s.owner_id = ? AND p.is_demo = 1`,
-    [visitorId],
+     WHERE p.is_demo = 1 AND ${where}`,
+    args,
   );
   for (const s of sessions) {
     const profiles = [s.participant_a, s.participant_b].filter((p): p is string => Boolean(p));
