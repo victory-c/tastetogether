@@ -95,10 +95,56 @@ export type VibePlan = Omit<z.infer<typeof vibeSchema>, 'boost'> & { boost: Tast
  * Agent step: turn a free-text vibe ("cozy, not too loud, we're broke students") into real Qloo
  * tag ids by searching Qloo's tag taxonomy. The model can only choose tags that the tool returned.
  */
+/**
+ * Vibe plans the agent produced earlier for the sample duos, kept in code so a demo run never waits on the model,
+ * even on a cold serverless instance. Each entry is the agent's own output (tag ids from Qloo's taxonomy), not hand-picked.
+ */
+// Captured 2026-11-02 with scripts run against the live taxonomy; keys are `${occasion}|${vibe}` as typed in samples.ts.
+export const KNOWN_VIBES: Record<string, VibePlan> = {
+  'date|cozy, not too loud': {
+    boost: [
+      { id: 'urn:tag:ambience:qloo:cozy', name: 'Cozy', concept: 'cozy' },
+      { id: 'urn:tag:ambience:qloo:cozy_atmosphere', name: 'Cozy Atmosphere', concept: 'cozy' },
+    ],
+    avoid: [{ id: 'urn:tag:noise_level:qloo:loud', name: 'Loud' }],
+    priceMax: null,
+  },
+  'show|quick, lively, not too pricey': {
+    boost: [
+      { id: 'urn:tag:offerings:place:quick_bite', name: 'Quick bite', concept: 'quick' },
+      { id: 'urn:tag:ambience:qloo:lively', name: 'Lively', concept: 'lively' },
+    ],
+    avoid: [],
+    priceMax: 2,
+  },
+  'coffee|somewhere we can actually talk': {
+    boost: [{ id: 'urn:tag:noise_level:qloo:quiet', name: 'Quiet', concept: 'quiet' }],
+    avoid: [{ id: 'urn:tag:noise_level:qloo:loud', name: 'Loud' }],
+    priceMax: null,
+  },
+  'business|impressive but not stuffy': {
+    boost: [
+      { id: 'urn:tag:ambience:qloo:upscale_casual', name: 'Upscale Casual', concept: 'upscale' },
+      { id: 'urn:tag:ambience:place:upscale', name: 'Upscale', concept: 'upscale' },
+      { id: 'urn:tag:ambience:place:casual', name: 'Casual', concept: 'casual' },
+    ],
+    avoid: [],
+    priceMax: null,
+  },
+};
+
+const vibeKey = (occasion: Occasion, vibe: string) => `${occasion}|${vibe.trim().toLowerCase().slice(0, 300)}`;
+
+/** A plan the agent already produced for this exact request (seeded or memoised), or null. No model call. */
+export function rememberedVibe(vibe: string, occasion: Occasion): VibePlan | null {
+  if (!llmAvailable()) return null;
+  return KNOWN_VIBES[vibeKey(occasion, vibe)] ?? memoGet<VibePlan>(`vibe|${LLM_MODEL}|${vibeKey(occasion, vibe)}`) ?? null;
+}
+
 export async function interpretVibe(vibe: string, occasion: Occasion, stats: CallStats): Promise<VibePlan | null> {
   if (!llmAvailable()) return null;
-  const key = `vibe|${LLM_MODEL}|${occasion}|${vibe.trim().toLowerCase().slice(0, 300)}`;
-  const remembered = memoGet<VibePlan>(key);
+  const key = `vibe|${LLM_MODEL}|${vibeKey(occasion, vibe)}`;
+  const remembered = rememberedVibe(vibe, occasion);
   if (remembered) return remembered;
   // Tag id → the keyword whose search returned it first.
   const seen = new Map<string, string>();

@@ -25,7 +25,7 @@ vi.mock('../agent/llm', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../agent/llm')>()),
   llmAvailable: () => llm.on,
   cachedNarration: () => null,
-  interpretVibe: async () => llm.vibe,
+  interpretVibe: vi.fn(async () => llm.vibe),
   narrate: llm.narrate,
 }));
 
@@ -270,5 +270,63 @@ describe('runMatch vibe ranking', () => {
     };
     const ids = resultOf(await collect({ ...REQ, vibe: 'vegetarian, outdoor seating' })).picks.map((p) => p.id);
     expect(ids.indexOf('place-2')).toBeLessThan(ids.indexOf('place-1'));
+  });
+});
+
+describe('runMatch availability and data hygiene', () => {
+  const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const closedAllWeek = Object.fromEntries(DAYS.map((d) => [d, [{ closed: true }]]));
+  type Props = (typeof PLACES)[number]['properties'] & { hours?: unknown; specialty_dishes?: { name: string }[] };
+  const props = (i: number) => PLACES[i]!.properties as Props;
+
+  beforeEach(() => {
+    llm.on = false;
+    llm.vibe = null;
+    qloo.sameTaste = true;
+  });
+  afterEach(() => {
+    qloo.sameTaste = false;
+    PLACES.forEach((p) => {
+      delete (p.properties as Props).hours;
+      delete (p.properties as Props).specialty_dishes;
+    });
+  });
+
+  it('holds back places closed at the plan time when enough open places exist, and says so', async () => {
+    props(0).hours = closedAllWeek;
+    props(1).hours = closedAllWeek;
+    const result = resultOf(await collect());
+    expect(result.picks.slice(0, 3).map((p) => p.id)).toEqual(['place-2', 'place-3', 'place-4']);
+    expect(result.picks.slice(0, 3).every((p) => p.open.kind !== 'closed_today')).toBe(true);
+    expect(result.relaxed).toMatch(/Held back 2 places that aren’t open/);
+    // Taste ranks are untouched: place-2 is still #3 for Ana, not renumbered.
+    expect(result.picks[0]!.fitA.rank).toBe(3);
+  });
+
+  it('still shows closed places when there are not enough open ones, without claiming otherwise', async () => {
+    PLACES.forEach((_, i) => (props(i).hours = closedAllWeek));
+    const result = resultOf(await collect());
+    expect(result.picks[0]!.id).toBe('place-0');
+    expect(result.relaxed).toBeUndefined();
+  });
+
+  it('falls back to keyword matching when the vibe agent exceeds its time budget', async () => {
+    llm.on = true;
+    llm.vibe = { boost: [{ id: 'urn:tag:ambience:qloo:cozy', name: 'Cozy', concept: 'cozy' }], avoid: [], priceMax: null };
+    const { interpretVibe } = await import('../agent/llm');
+    vi.mocked(interpretVibe).mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve(llm.vibe), 150)));
+    const events: MatchEvent[] = [];
+    for await (const e of runMatch({ ...REQ, vibe: 'quiet' }, { vibeBudgetMs: 10 })) events.push(structuredClone(e));
+    const vibe = events.find((e) => e.type === 'vibe') as Extract<MatchEvent, { type: 'vibe' }>;
+    expect(vibe.source).toBe('keywords');
+    expect(vibe.tags.map((t) => t.name)).toEqual(['Quiet']);
+    const step = events.find((e) => e.type === 'step' && e.id === 'vibe' && e.status === 'done') as Extract<MatchEvent, { type: 'step' }>;
+    expect(step.detail).toMatch(/keyword match/);
+  });
+
+  it('drops dish-name fragments such as "And Fries"', async () => {
+    props(0).specialty_dishes = [{ name: 'Confit Duck Wings' }, { name: 'And Fries' }, { name: 'Shrimp Toast' }];
+    const result = resultOf(await collect());
+    expect(result.picks[0]!.dishes).toEqual(['Confit Duck Wings', 'Shrimp Toast']);
   });
 });
