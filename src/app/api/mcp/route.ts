@@ -126,6 +126,9 @@ const handler = createMcpHandler(
         annotations: { readOnlyHint: true, openWorldHint: true },
       },
       async ({ a, b }) => {
+        if (!isQlooConfigured() || !underDailyBudget()) {
+          return { content: [{ type: 'text', text: 'TasteTogether is unavailable right now.' }], isError: true };
+        }
         const [ia, ib] = await Promise.all([resolveAll(a.favorites), resolveAll(b.favorites)]);
         const req: MatchRequest = {
           a: { name: a.name, interests: ia },
@@ -160,7 +163,8 @@ const handler = createMcpHandler(
 );
 
 async function guarded(request: Request) {
-  if (!allow(request, 'mcp', 30, 10 * 60_000)) {
+  // Each MCP call resolves names first, so it costs several times the Qloo calls of a web run.
+  if (!allow(request, 'mcp', 12, 10 * 60_000)) {
     return Response.json({ error: 'Rate limited. Try again in a few minutes.' }, { status: 429 });
   }
   return handler(request);

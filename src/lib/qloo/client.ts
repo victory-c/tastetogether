@@ -6,6 +6,37 @@ const DEFAULT_BASE = 'https://hackathon.api.qloo.com';
 const TIMEOUT_MS = 12_000;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const CACHE_MAX = 500;
+/** Qloo allows 10 requests/s on a key shared with the live demo; this bounds what one instance can fire at once. */
+const MAX_IN_FLIGHT = 6;
+/** Process-wide ceiling per hour, so one instance can never spend more than a bounded share of the monthly quota. */
+const HOURLY_CEILING = Number(process.env.QLOO_MAX_CALLS_PER_HOUR || 600);
+
+let inFlight = 0;
+const waiters: (() => void)[] = [];
+async function acquire() {
+  if (inFlight < MAX_IN_FLIGHT) {
+    inFlight += 1;
+    return;
+  }
+  await new Promise<void>((resolve) => waiters.push(resolve));
+  inFlight += 1;
+}
+function release() {
+  inFlight -= 1;
+  waiters.shift()?.();
+}
+
+let hourStart = 0;
+let hourCalls = 0;
+function takeHourly() {
+  const t = Date.now();
+  if (t - hourStart > 3_600_000) {
+    hourStart = t;
+    hourCalls = 0;
+  }
+  if (hourCalls >= HOURLY_CEILING) throw new QlooError('Qloo is busy right now.', 429);
+  hourCalls += 1;
+}
 
 export class QlooError extends Error {
   constructor(
@@ -47,6 +78,8 @@ export function isQlooConfigured() {
 export interface CallStats {
   calls: number;
   cached: number;
+  /** Epoch ms after which no new Qloo request is started for this run; requests in flight get only the remaining time. */
+  deadline?: number;
 }
 
 export async function qlooGet<T>(path: string, params: Params, stats?: CallStats): Promise<T> {
@@ -69,10 +102,14 @@ export async function qlooGet<T>(path: string, params: Params, stats?: CallStats
 
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    const remaining = stats?.deadline ? stats.deadline - Date.now() : TIMEOUT_MS;
+    if (remaining < 500) throw new QlooError('Qloo took too long to answer.', null);
+    takeHourly();
+    await acquire();
     try {
       const res = await fetch(url, {
         headers: { 'X-Api-Key': key, accept: 'application/json' },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, remaining)),
         cache: 'no-store',
       });
       if (stats) stats.calls += 1;
@@ -87,6 +124,8 @@ export async function qlooGet<T>(path: string, params: Params, stats?: CallStats
     } catch (err) {
       lastError = err;
       if (err instanceof QlooError && err.status !== null && err.status < 500) break;
+    } finally {
+      release();
     }
   }
   if (lastError instanceof QlooError) throw lastError;

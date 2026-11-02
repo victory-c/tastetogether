@@ -3,6 +3,7 @@ import 'server-only';
 import {
   cachedNarration,
   interpretVibe,
+  rememberedVibe,
   keywordVibe,
   llmAvailable,
   LLM_MODEL,
@@ -20,6 +21,19 @@ import type { Driver, MatchEvent, MatchRequest, Person, PersonFit, Pick, TasteDn
 const RESTAURANT_TAG = 'urn:tag:genre:place:restaurant';
 const POOL_CAP = 50;
 const RESULT_COUNT = 6;
+/** How long the picks wait for the vibe agent before keyword matching stands in. */
+const VIBE_BUDGET_MS = 3000;
+const VIBE_TIMEOUT = Symbol('vibe-timeout');
+/** No new Qloo request starts after this; keeps a stalled upstream inside the route's 60 s and yields a real error instead of a cut stream. */
+const RUN_BUDGET_MS = 35_000;
+
+/** Qloo's dish lists sometimes split one item at a comma ("Confit Duck Wings", "And Fries"); drop the fragments. */
+function cleanDishes(dishes: { name: string }[] | null | undefined): string[] {
+  return (dishes ?? [])
+    .map((d) => d.name.trim())
+    .filter((n) => n.length > 1 && !/^(and|or|with|the)\b/i.test(n))
+    .slice(0, 3);
+}
 
 const DNA_SUBTYPES = ['genre', 'style', 'theme', 'audience', 'characteristic', 'mood', 'subgenre', 'keyword'];
 const DNA_BLOCK = ['not_for_display', 'award', 'list', 'source', 'country', 'platform', 'language', 'rating', 'release'];
@@ -141,9 +155,12 @@ function now() {
  * The TasteTogether agent run. Each yielded event is a real step of the pipeline; the UI renders them as they arrive.
  * `narrateSpares: false` skips LLM copy for the "Try another" spares (picks 4-6), for callers that only show three.
  */
-export async function* runMatch(input: MatchRequest, { narrateSpares = true } = {}): AsyncGenerator<MatchEvent> {
+export async function* runMatch(
+  input: MatchRequest,
+  { narrateSpares = true, vibeBudgetMs = VIBE_BUDGET_MS } = {},
+): AsyncGenerator<MatchEvent> {
   const t0 = now();
-  const stats: CallStats = { calls: 0, cached: 0 };
+  const stats: CallStats = { calls: 0, cached: 0, deadline: Date.now() + RUN_BUDGET_MS };
   const req = withShow(input);
   const occ = OCCASIONS[req.occasion];
   const when = planTime(req.occasion, new Date(), req.show ? dinnerBeforeDoors(req.show.doors) : undefined);
@@ -167,7 +184,13 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
     let vibeTags: TasteTag[] = [];
     let avoidTags: TasteTag[] = [];
     let priceMax = req.priceMax;
-    const vibePromise = vibeText ? interpretVibe(vibeText, req.occasion, stats).catch(() => null) : Promise.resolve(null);
+    const tVibeStart = now();
+    const knownVibe = vibeText ? rememberedVibe(vibeText, req.occasion) : null;
+    const vibePromise = knownVibe
+      ? Promise.resolve(knownVibe)
+      : vibeText
+        ? interpretVibe(vibeText, req.occasion, stats).catch(() => null)
+        : Promise.resolve(null);
 
     const visited = new Set([...(req.a.visited ?? []), ...(req.b.visited ?? [])]);
     const exclude = [...new Set([...visited, ...(req.exclude ?? [])])];
@@ -229,8 +252,15 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
     if (vibeText) {
       yield { type: 'step', id: 'vibe', label: `Translating “${vibeText.slice(0, 48)}” into Qloo tags`, status: 'running' };
       const tVibe = now();
-      const plan = await vibePromise;
-      if (plan) {
+      // The agent gets a fixed share of the run's time (it started with the DNA call); past that, keyword matching
+      // stands in so the picks never wait on the model. The agent's answer is still remembered for the next run.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const budget = new Promise<typeof VIBE_TIMEOUT>((resolve) => {
+        timer = setTimeout(() => resolve(VIBE_TIMEOUT), Math.max(0, vibeBudgetMs - (now() - tVibeStart)));
+      });
+      const plan = await Promise.race([vibePromise, budget]).finally(() => clearTimeout(timer));
+      const timedOut = plan === VIBE_TIMEOUT;
+      if (plan && !timedOut) {
         vibeTags = plan.boost;
         avoidTags = plan.avoid;
         if (plan.priceMax && (!priceMax || plan.priceMax < priceMax)) priceMax = plan.priceMax as 1 | 2 | 3 | 4;
@@ -239,12 +269,17 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
         vibeTags = keywordVibe(vibeText);
         yield { type: 'vibe', tags: vibeTags, source: 'keywords' };
       }
+      const tagList = vibeTags.length ? vibeTags.map((t) => t.name).join(' · ') : 'No matching tags; using the occasion only';
       yield {
         type: 'step',
         id: 'vibe',
         label: `Translating “${vibeText.slice(0, 48)}” into Qloo tags`,
         status: 'done',
-        detail: vibeTags.length ? vibeTags.map((t) => t.name).join(' · ') : 'No matching tags; using the occasion only',
+        detail: timedOut
+          ? `${tagList} · keyword match (the agent took longer than ${Math.round(vibeBudgetMs / 1000)}s)`
+          : knownVibe
+            ? `${tagList} · remembered from an earlier agent run`
+            : tagList,
         ms: Math.round(now() - tVibe),
       };
     }
@@ -371,14 +406,25 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
       };
     });
     const ranked = rankDuo(items);
+    // Places closed (or not yet open) at the plan time go behind every available one, so they appear only when
+    // there aren't enough available places for the on-screen picks. The score penalty alone let strong fits
+    // through with a "Closed tonight" label, which is a dead end for someone deciding where to eat tonight.
+    const shownCount = req.mode === 'one' ? 1 : 3;
+    const penaltyOf = new Map(items.map((i) => [i.id, i.penalty ?? 0]));
+    const available = ranked.filter((r) => penaltyOf.get(r.id) === 0);
+    const heldBack = available.length >= shownCount ? ranked.length - available.length : 0;
+    const ordered = heldBack ? [...available, ...ranked.filter((r) => penaltyOf.get(r.id)! > 0)] : ranked;
+    const availabilityNote = heldBack
+      ? `Held back ${heldBack} ${heldBack === 1 ? 'place that isn’t' : 'places that aren’t'} open ${when.label.replace(' · ', ' at ').replace(/^./, (c) => c.toLowerCase())}.`
+      : undefined;
     const baseA = baselineShares(scored.map((e) => aById.get(e.entity_id)));
     const baseB = baselineShares(scored.map((e) => bById.get(e.entity_id)));
     const byId = new Map(scored.map((e) => [e.entity_id, e]));
     yield {
       type: 'negotiation',
-      rows: ranked.slice(0, 5).map((r) => ({ name: byId.get(r.id)!.name, rankA: r.rankA, rankB: r.rankB, of: ranked.length })),
+      rows: ordered.slice(0, 5).map((r) => ({ name: byId.get(r.id)!.name, rankA: r.rankA, rankB: r.rankB, of: ranked.length })),
     };
-    const top = ranked.slice(0, RESULT_COUNT);
+    const top = ordered.slice(0, RESULT_COUNT);
     const nameOf = (id: string) => byId.get(id)!.name;
     // Name any part of the vibe that no on-screen pick has, instead of looking like it was ignored.
     const one = req.mode === 'one';
@@ -408,7 +454,7 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
         .sort((x, y) => x.rankB - y.rankB)
         .slice(0, 3)
         .map((r) => nameOf(r.id)),
-      together: ranked.slice(0, 3).map((r) => nameOf(r.id)),
+      together: ordered.slice(0, 3).map((r) => nameOf(r.id)),
     };
     yield {
       type: 'step',
@@ -442,7 +488,7 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
         distanceM: e.location ? Math.round(haversine(req.area.lat, req.area.lon, e.location.lat, e.location.lon)) : undefined,
         open: openStatus(p.hours, when),
         description: p.description,
-        dishes: (p.specialty_dishes ?? []).slice(0, 3).map((d) => d.name),
+        dishes: cleanDishes(p.specialty_dishes),
         occasionTags,
         vibeTags: vibe,
         noise,
@@ -511,7 +557,7 @@ export async function* runMatch(input: MatchRequest, { narrateSpares = true } = 
       type: 'result',
       picks,
       headline: remembered[0]?.headline,
-      relaxed: [relaxed, vibeNote].filter(Boolean).join(' ') || undefined,
+      relaxed: [relaxed, availabilityNote, vibeNote].filter(Boolean).join(' ') || undefined,
       when: when.label,
       stats: {
         qlooCalls: stats.calls,

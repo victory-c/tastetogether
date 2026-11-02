@@ -14,7 +14,7 @@ export function ContrastPanel({
 }) {
   const popular = new Set(contrast.popular);
   const cols = [
-    { title: 'Popular nearby', sub: 'No taste data', items: contrast.popular, tone: 'plain' },
+    { title: 'Popular nearby', sub: 'Popularity only', items: contrast.popular, tone: 'plain' },
     { title: `If only ${aName} chose`, sub: `${aName}'s taste alone`, items: contrast.aloneA, tone: 'a' },
     { title: `If only ${bName} chose`, sub: `${bName}'s taste alone`, items: contrast.aloneB, tone: 'b' },
     { title: 'Together', sub: 'Fair for both', items: contrast.together, tone: 'duo' },

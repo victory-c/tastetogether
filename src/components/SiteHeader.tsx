@@ -18,12 +18,9 @@ export function SiteHeader({ compact }: { compact?: boolean }) {
           <a href={REPO_URL} target="_blank" rel="noreferrer" className="hidden rounded-full px-3 py-2 transition hover:text-ink sm:block">
             GitHub
           </a>
-          <Link
-            href="/match?demo=maya-leo&go=1"
-            className="rounded-full bg-ink px-4 py-2 font-semibold text-cream transition hover:bg-ink/85"
-          >
+          <a href="/match?demo=maya-leo&go=1" className="rounded-full bg-ink px-4 py-2 font-semibold text-cream transition hover:bg-ink/85">
             Try the demo
-          </Link>
+          </a>
         </nav>
       </div>
     </header>

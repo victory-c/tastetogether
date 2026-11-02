@@ -62,7 +62,7 @@ free-text vibe ─ LLM tool loop over /v2/tags ─ boost / avoid tags           
 ```
 
 - **Personal agents + coordinator.** Each person's taste is scouted and scored separately (the “personal agents”); the coordinator merges a shared pool, negotiates the fair pick and explains it. The UI shows how each taste ranked the finalists.
-- **Tool use.** A `ToolLoopAgent` (Vercel AI SDK) searches Qloo's tag taxonomy (all searches in one parallel step) and may only choose tags the tool returned. It takes two model round trips (one parallel search step plus the answer), and restaurant scouting runs meanwhile.
+- **Tool use.** A `ToolLoopAgent` (Vercel AI SDK) searches Qloo's tag taxonomy (all searches in one parallel step) and may only choose tags the tool returned. It takes two model round trips (one parallel search step plus the answer), and restaurant scouting runs meanwhile. The picks wait at most 3 seconds for it; past that, keyword matching stands in (the trace says so) and the agent's answer is remembered for the next identical request. The sample duos' vibes were translated by the same agent once and are shipped in code, so a demo never waits on the model even on a cold server.
 - **Autonomous recovery.** If too few places match, the agent widens the search radius once and says so; if nothing matches, it returns `no_match` with ways to relax the plan instead of inventing a restaurant.
 - **Grounded copy.** The LLM writes the "why you'll both love it" lines from a JSON of verified facts, treated as untrusted data, and is told never to add dishes, hours, prices or waits, and to credit a specific favorite only when Qloo's explainability names it. The picks arrive first with fact templates; the LLM lines stream in afterwards as their own events (on-screen picks first), so the explanation call never delays the result. Without an LLM key, the templates stay and the trace says so.
 - **MCP.** `/api/mcp` exposes `find_table_for_two` and `taste_overlap` (Streamable HTTP). Example client config: `{"tastetogether": {"url": "https://tastetogether.vercel.app/api/mcp"}}`.
@@ -80,10 +80,10 @@ Duo score = `0.6·min(fitA, fitB) + 0.2·mean + 0.14·occasion match + 0.3·vibe
 ### Honesty by design
 
 - Names, addresses, hours, price levels, tags and dishes come from Qloo. Unknown hours show as **Hours unverified**; no wait times or per-person prices are shown.
-- Open status is checked against the planned meal time (tonight, or tomorrow if it's late), never against “now”.
+- Open status is checked against the planned meal time (tonight, or tomorrow if it's late), never against “now”. Places closed at that time are shown only when there aren't enough open ones for the picks, and the result says how many were held back.
 - `needs_clarification`, `no_match` and `provider_unavailable` are never rendered as a recommendation.
 - Sample people are fictional and labeled; their favorites are real Qloo entities, so every demo run calls the live API.
-- Keys stay on the server; match, search and MCP endpoints are rate-limited per IP with a daily run cap.
+- Keys stay on the server. Match, search and MCP endpoints are rate-limited per IP (per server instance, best effort), each instance has a daily run cap and an hourly Qloo call ceiling (`QLOO_MAX_CALLS_PER_HOUR`), at most 6 Qloo requests are in flight at once, and a run stops starting new Qloo requests after 35 s.
 
 ## Rooms and saved profiles
 
@@ -115,7 +115,7 @@ The local database is created at `data/local.db` on first use. Optional: run `ba
 | `TASTE_DAILY_RUN_CAP` | Optional max match runs per server instance per day (default 2000) |
 | `DATABASE_URL` / `TURSO_DATABASE_URL`, `DATABASE_AUTH_TOKEN` | libSQL for rooms and saved profiles; empty = local file |
 | `SESSION_SECRET` | Signing secret for rooms; at least 32 characters in production |
-| `QLOO_MAX_CALLS_PER_HOUR` | Optional per-process Qloo call limit for the rooms flow |
+| `QLOO_MAX_CALLS_PER_HOUR` | Optional per-instance hourly ceiling on Qloo calls (default 600), applied to the taste flow, MCP and rooms |
 
 ## Tests
 

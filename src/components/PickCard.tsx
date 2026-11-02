@@ -78,6 +78,7 @@ export function PickCard({
   hero,
   index,
   onAnother,
+  hasSpare = true,
   onChoose,
   chosen,
   when,
@@ -89,6 +90,7 @@ export function PickCard({
   hero?: boolean;
   index: number;
   onAnother?: () => void;
+  hasSpare?: boolean;
   onChoose: () => void;
   chosen?: boolean;
 }) {
@@ -212,7 +214,7 @@ export function PickCard({
               onClick={onAnother}
               className="inline-flex items-center gap-1.5 rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-ink/30"
             >
-              <RefreshCw className="size-4" /> Try another
+              <RefreshCw className="size-4" /> {hasSpare ? 'Try another' : 'Search again for more'}
             </button>
           )}
           <a
@@ -228,7 +230,7 @@ export function PickCard({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-1 self-start text-xs font-semibold text-ink-faint transition hover:text-ink-soft"
+          className="flex items-center gap-1 self-start text-[13px] font-semibold text-ink-soft transition hover:text-ink"
           aria-expanded={open}
         >
           Why we trust this pick <ChevronDown className={clsx('size-3.5 transition', open && 'rotate-180')} />

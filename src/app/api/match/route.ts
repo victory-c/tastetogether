@@ -59,13 +59,14 @@ export async function POST(request: Request) {
   if (!isQlooConfigured()) {
     return Response.json({ error: 'Recommendations are unavailable: Qloo is not configured.' }, { status: 503 });
   }
-  if (!allow(request, 'match', 20, 10 * 60_000) || !underDailyBudget()) {
-    return Response.json({ error: 'Our taste buds need a breather. Please try again in a few minutes.' }, { status: 429 });
-  }
-
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return Response.json({ error: "We couldn't read that request. Add at least one favorite for each person." }, { status: 400 });
+  }
+  // Counted after validation so bad requests don't spend the budget. 60 per 10 minutes per IP covers a room of
+  // people behind one NAT; the daily cap and the Qloo client's hourly ceiling are the real guards.
+  if (!allow(request, 'match', 60, 10 * 60_000) || !underDailyBudget()) {
+    return Response.json({ error: 'Our taste buds need a breather. Please try again in a few minutes.' }, { status: 429 });
   }
   const { areaId, near, show, ...rest } = parsed.data;
   const venue = show && rest.occasion === 'show' ? VENUES.find((v) => v.id === show.venueId) : undefined;
