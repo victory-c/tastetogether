@@ -135,10 +135,16 @@ export const KNOWN_VIBES: Record<string, VibePlan> = {
 
 const vibeKey = (occasion: Occasion, vibe: string) => `${occasion}|${vibe.trim().toLowerCase().slice(0, 300)}`;
 
-/** A plan the agent already produced for this exact request (seeded or memoised), or null. No model call. */
+/**
+ * A plan the agent already produced for this exact request, or null. No model call. Seeded plans apply even
+ * without an LLM key (the agent did run, earlier); the in-memory memo only ever fills when a key is present.
+ */
 export function rememberedVibe(vibe: string, occasion: Occasion): VibePlan | null {
-  if (!llmAvailable()) return null;
-  return KNOWN_VIBES[vibeKey(occasion, vibe)] ?? memoGet<VibePlan>(`vibe|${LLM_MODEL}|${vibeKey(occasion, vibe)}`) ?? null;
+  return (
+    KNOWN_VIBES[vibeKey(occasion, vibe)] ??
+    (llmAvailable() ? memoGet<VibePlan>(`vibe|${LLM_MODEL}|${vibeKey(occasion, vibe)}`) : null) ??
+    null
+  );
 }
 
 export async function interpretVibe(vibe: string, occasion: Occasion, stats: CallStats): Promise<VibePlan | null> {
@@ -149,6 +155,9 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
   // Tag id → the keyword whose search returned it first.
   const seen = new Map<string, string>();
   let searchFailed = false;
+  let searches = 0;
+  // The request text is user input placed in the prompt: keep it short and single-line.
+  const ask = vibe.replace(/\s+/g, ' ').trim().slice(0, 160);
   const agent = new ToolLoopAgent({
     model: model(),
     instructions:
@@ -163,6 +172,8 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
         description: "Search Qloo's tag taxonomy for restaurant-relevant tags matching a short keyword.",
         inputSchema: z.object({ keyword: z.string().min(2).max(40) }),
         execute: async ({ keyword }) => {
+          // Hard cap, whatever the model asks for: at most 4 Qloo tag searches per run.
+          if ((searches += 1) > 4) return [];
           try {
             const tags = await searchPlaceTags(keyword, stats);
             const concept = keyword.trim().toLowerCase();
@@ -181,7 +192,7 @@ export async function interpretVibe(vibe: string, occasion: Occasion, stats: Cal
   });
 
   const result = await agent.generate({
-    prompt: `Occasion: ${occasion}. Request: "${vibe.slice(0, 300)}"`,
+    prompt: `Occasion: ${occasion}. Request: "${ask}"`,
     timeout: 10_000,
   });
   const out = result.output;

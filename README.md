@@ -83,7 +83,7 @@ Duo score = `0.6·min(fitA, fitB) + 0.2·mean + 0.14·occasion match + 0.3·vibe
 - Open status is checked against the planned meal time (tonight, or tomorrow if it's late), never against “now”. Places closed at that time are shown only when there aren't enough open ones for the picks, and the result says how many were held back.
 - `needs_clarification`, `no_match` and `provider_unavailable` are never rendered as a recommendation.
 - Sample people are fictional and labeled; their favorites are real Qloo entities, so every demo run calls the live API.
-- Keys stay on the server; match, search and MCP endpoints are rate-limited per IP with a daily run cap.
+- Keys stay on the server. Match, search and MCP endpoints are rate-limited per IP (per server instance, best effort), each instance has a daily run cap and an hourly Qloo call ceiling (`QLOO_MAX_CALLS_PER_HOUR`), at most 6 Qloo requests are in flight at once, and a run stops starting new Qloo requests after 35 s.
 
 ## Rooms and saved profiles
 
@@ -115,7 +115,7 @@ The local database is created at `data/local.db` on first use. Optional: run `ba
 | `TASTE_DAILY_RUN_CAP` | Optional max match runs per server instance per day (default 2000) |
 | `DATABASE_URL` / `TURSO_DATABASE_URL`, `DATABASE_AUTH_TOKEN` | libSQL for rooms and saved profiles; empty = local file |
 | `SESSION_SECRET` | Signing secret for rooms; at least 32 characters in production |
-| `QLOO_MAX_CALLS_PER_HOUR` | Optional per-process Qloo call limit for the rooms flow |
+| `QLOO_MAX_CALLS_PER_HOUR` | Optional per-instance hourly ceiling on Qloo calls (default 600), applied to the taste flow, MCP and rooms |
 
 ## Tests
 

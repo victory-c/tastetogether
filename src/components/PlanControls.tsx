@@ -43,7 +43,7 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
   };
 
   return (
-    <section className="rounded-[28px] border border-line bg-paper/90 p-5 shadow-card backdrop-blur sm:p-6" aria-label="The plan">
+    <section className="rounded-[28px] border border-line bg-paper/90 p-5 shadow-card sm:p-6" aria-label="The plan">
       <h2 className="font-display text-xl font-semibold tracking-tight">What&apos;s the plan?</h2>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="radiogroup" aria-label="Occasion">

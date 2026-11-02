@@ -162,7 +162,7 @@ export function Thumb({ src, alt, kind, size = 40 }: { src?: string; alt: string
         style={{ width: size, height: size }}
         aria-hidden
       >
-        {KIND_LABEL[kind].slice(0, 1)}
+        {KIND_LABEL[kind]?.slice(0, 1) ?? '?'}
       </div>
     );
   }

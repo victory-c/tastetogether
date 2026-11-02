@@ -41,7 +41,7 @@ describe('keywordVibe', () => {
 
 describe('remembered vibe plans', () => {
   it('has an agent-produced plan for every sample duo, so demos never wait on the model', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key-only-for-availability-check');
+    vi.stubEnv('ANTHROPIC_API_KEY', '');
     const { KNOWN_VIBES, rememberedVibe } = await import('./llm');
     const { SAMPLE_DUOS } = await import('../taste/samples');
     for (const duo of SAMPLE_DUOS) {

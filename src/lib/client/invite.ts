@@ -1,5 +1,7 @@
 import type { Interest, InterestKind, Person } from '../taste/types';
 
+const KINDS: InterestKind[] = ['artist', 'movie', 'tv_show', 'book', 'podcast', 'video_game'];
+
 type Packed = { n: string; i: [string, string, InterestKind, number?][] };
 
 function toBase64Url(s: string) {
@@ -29,10 +31,10 @@ export function decodePerson(token: string): Person | null {
     const packed = JSON.parse(fromBase64Url(token)) as Packed;
     if (!packed || typeof packed.n !== 'string' || !Array.isArray(packed.i)) return null;
     const interests: Interest[] = packed.i
-      .filter((x) => Array.isArray(x) && /^[0-9A-Fa-f-]{36}$/.test(x[0]))
+      .filter((x) => Array.isArray(x) && /^[0-9A-Fa-f-]{36}$/.test(x[0]) && KINDS.includes(x[2]))
       .slice(0, 8)
       .map(([id, name, kind, year]) => ({ id, name: String(name).slice(0, 120), kind, year }));
-    return { name: packed.n.slice(0, 24) || 'Friend', interests };
+    return { name: packed.n.slice(0, 24), interests };
   } catch {
     return null;
   }

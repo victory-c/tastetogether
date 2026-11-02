@@ -46,8 +46,8 @@ function writeHistory(items: HistoryItem[]) {
   }
 }
 
-const EMPTY_A: Person = { name: 'You', interests: [] };
-const EMPTY_B: Person = { name: 'Them', interests: [] };
+const EMPTY_A: Person = { name: '', interests: [] };
+const EMPTY_B: Person = { name: '', interests: [] };
 const DEFAULT_PLAN: Plan = {
   occasion: 'date',
   areaId: DEFAULT_AREA.id,
@@ -76,7 +76,8 @@ export function MatchApp() {
   const { state, run, reset } = useMatch();
   // Deep links that auto-run (?go=1) go straight to the results view instead of flashing the builder.
   const [autostart, setAutostart] = useState(() => params.get('go') === '1');
-  const autoRan = useRef(false);
+  const handledParams = useRef<string | null>(null);
+  const [fetchingMore, setFetchingMore] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
   const picksRef = useRef<HTMLElement>(null);
 
@@ -127,41 +128,39 @@ export function MatchApp() {
     [hydrate, reset],
   );
 
-  const bodyFor = useCallback(
-    (pa: Person, pb: Person, pl: Plan, exclude: string[] = []): MatchBody => {
-      const remembered = history.map((h) => h.id);
-      const strip = (p: Person) => ({
-        name: p.name.trim() || 'Friend',
-        interests: p.interests.map(({ id, name, kind, year }) => ({ id, name, kind, year })),
-        visited: [...new Set([...remembered, ...(p.visited ?? []), ...(p.beenTo ?? []).map((x) => x.id)])].slice(0, 50),
-      });
-      return {
-        a: strip(pa),
-        b: strip(pb),
-        occasion: pl.occasion,
-        priceMax: pl.priceMax,
-        areaId: pl.near ? undefined : pl.areaId,
-        near: pl.near,
-        mode: pl.mode,
-        vibe: pl.vibe.trim() || undefined,
-        exclude,
-        show:
-          pl.occasion === 'show'
-            ? {
-                venueId: pl.venueId,
-                doors: pl.doors,
-                performer: pl.performer
-                  ? { id: pl.performer.id, name: pl.performer.name, kind: pl.performer.kind, year: pl.performer.year }
-                  : undefined,
-              }
-            : undefined,
-      };
-    },
-    [history],
-  );
+  const bodyFor = useCallback((pa: Person, pb: Person, pl: Plan, exclude: string[] = []): MatchBody => {
+    const remembered = readHistory().map((h) => h.id);
+    const strip = (p: Person, fallback: string) => ({
+      name: p.name.trim() || fallback,
+      interests: p.interests.map(({ id, name, kind, year }) => ({ id, name, kind, year })),
+      visited: [...new Set([...remembered, ...(p.visited ?? []), ...(p.beenTo ?? []).map((x) => x.id)])].slice(0, 50),
+    });
+    return {
+      a: strip(pa, 'Person 1'),
+      b: strip(pb, 'Person 2'),
+      occasion: pl.occasion,
+      priceMax: pl.priceMax,
+      areaId: pl.near ? undefined : pl.areaId,
+      near: pl.near,
+      mode: pl.mode,
+      vibe: pl.vibe.trim() || undefined,
+      exclude,
+      show:
+        pl.occasion === 'show'
+          ? {
+              venueId: pl.venueId,
+              doors: pl.doors,
+              performer: pl.performer
+                ? { id: pl.performer.id, name: pl.performer.name, kind: pl.performer.kind, year: pl.performer.year }
+                : undefined,
+            }
+          : undefined,
+    };
+  }, []);
 
   const start = useCallback(
-    (pa: Person, pb: Person, pl: Plan, exclude: string[] = []) => {
+    (pa: Person, pb: Person, pl: Plan, exclude: string[] = [], fresh = false) => {
+      setFetchingMore(fresh);
       const body = bodyFor(pa, pb, pl, exclude);
       setLastBody(body);
       setVisible([]);
@@ -179,12 +178,15 @@ export function MatchApp() {
   }, []);
 
   useEffect(() => {
-    if (autoRan.current) return;
+    const key = params.toString();
+    if (handledParams.current === key) return;
+    handledParams.current = key;
     const demo = params.get('demo');
     const invite = params.get('invite');
     const sa = params.get('a');
     const sb = params.get('b');
-    autoRan.current = true;
+    if (!demo && !(sa && sb) && !invite) return;
+    setAutostart(params.get('go') === '1' && Boolean(demo || (sa && sb)));
     if (demo) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from the URL (demo/invite/share links).
       const loaded = loadDuo(demo);
@@ -194,29 +196,48 @@ export function MatchApp() {
       const pb = decodePerson(sb);
       if (pa && pb) {
         const occ = (params.get('o') as Occasion) || 'date';
+        const coords = params.get('n')?.split(',');
+        const lat = coords?.[0] ? Number(coords[0]) : NaN;
+        const lon = coords?.[1] ? Number(coords[1]) : NaN;
+        const near =
+          coords?.length === 2 && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180
+            ? { lat, lon }
+            : undefined;
+        const performer = params.get('perf') ? decodePerson(params.get('perf')!)?.interests[0] : undefined;
+        const venue = params.get('venue');
+        const doors = Number(params.get('doors'));
         const pl: Plan = {
           ...DEFAULT_PLAN,
           occasion: occ in OCCASIONS ? occ : 'date',
           areaId: params.get('area') || DEFAULT_AREA.id,
           priceMax: (Number(params.get('p')) || null) as Plan['priceMax'],
           vibe: params.get('v') || '',
+          near,
+          venueId: VENUES.some((v) => v.id === venue) ? venue! : DEFAULT_PLAN.venueId,
+          doors: params.has('doors') && Number.isInteger(doors) && doors >= 0 && doors < 1440 ? doors : DEFAULT_PLAN.doors,
+          performer,
         };
         setA(pa);
         setB(pb);
         setPlan(pl);
-        void hydrate([pa, pb]);
+        setInvitedBy(null);
+        setActiveDuo(null);
+        reset();
+        void hydrate([pa, pb], performer ? [performer.id] : []);
         if (params.get('go') === '1') start(pa, pb, pl);
       }
     } else if (invite) {
       const pa = decodePerson(invite);
       if (pa) {
+        reset();
+        setActiveDuo(null);
         setA(pa);
         setB({ name: '', interests: [] });
         setInvitedBy(pa.name);
         void hydrate([pa]);
       }
     }
-  }, [params, loadDuo, start, hydrate]);
+  }, [params, loadDuo, start, hydrate, reset]);
 
   // Fill the visible cards as soon as results arrive.
   useEffect(() => {
@@ -234,6 +255,9 @@ export function MatchApp() {
   const ready = a.interests.length > 0 && b.interests.length > 0;
   const showResults = state.phase !== 'idle' || autostart;
 
+  const aName = a.name.trim() || 'Person 1';
+  const bName = b.name.trim() || 'Person 2';
+  const hasSpare = state.picks.some((p) => !used.includes(p.id) && !visible.includes(p.id));
   const another = (id: string) => {
     const next = state.picks.find((p) => !used.includes(p.id) && !visible.includes(p.id));
     if (next) {
@@ -242,7 +266,7 @@ export function MatchApp() {
       return;
     }
     // Out of local alternatives: ask the agent again, excluding everything we've already shown.
-    start(a, b, plan, [...new Set([...used, ...visible])]);
+    start(a, b, plan, [...new Set([...used, ...visible])], true);
   };
 
   const choose = (p: Pick) => {
@@ -269,6 +293,12 @@ export function MatchApp() {
     const q = new URLSearchParams({ a: encodePerson(a), b: encodePerson(b), o: plan.occasion, area: plan.areaId, go: '1' });
     if (plan.priceMax) q.set('p', String(plan.priceMax));
     if (plan.vibe) q.set('v', plan.vibe);
+    if (plan.near) q.set('n', `${plan.near.lat},${plan.near.lon}`);
+    if (plan.occasion === 'show') {
+      q.set('venue', plan.venueId);
+      q.set('doors', String(plan.doors));
+      if (plan.performer) q.set('perf', encodePerson({ name: '', interests: [plan.performer] }));
+    }
     return `${window.location.origin}/match?${q.toString()}`;
   };
 
@@ -396,6 +426,9 @@ export function MatchApp() {
                     {ready ? 'Takes about 3 seconds. Every pick is scored live by Qloo.' : 'Add at least one favorite for each person.'}
                   </p>
                 </div>
+                {!ready && (
+                  <p className="mx-auto mt-1 max-w-6xl text-xs text-ink-soft sm:hidden">Add at least one favorite for each person.</p>
+                )}
               </div>
             </motion.div>
           ) : (
@@ -441,7 +474,7 @@ export function MatchApp() {
               </div>
 
               <div className="grid items-start gap-4 lg:grid-cols-[1.25fr_1fr] lg:gap-6">
-                <TasteVenn dna={state.dna} a={a} b={b} />
+                <TasteVenn dna={state.dna} a={{ ...a, name: aName }} b={{ ...b, name: bName }} />
                 <AgentTrace
                   steps={state.steps}
                   running={state.phase === 'running' || (state.phase === 'done' && state.steps.some((s) => s.status === 'running'))}
@@ -449,6 +482,9 @@ export function MatchApp() {
                 />
               </div>
 
+              {state.phase === 'running' && fetchingMore && (
+                <p className="mt-6 text-sm text-ink-soft">No spares left — fetching a fresh set from Qloo</p>
+              )}
               {state.phase === 'running' && (
                 <div className="mt-6 grid gap-4 md:grid-cols-3">
                   {[0, 1, 2].map((i) => (
@@ -503,7 +539,7 @@ export function MatchApp() {
                       {OCCASIONS[plan.occasion].emoji}{' '}
                       {plan.occasion === 'show'
                         ? `Before ${plan.performer?.name ?? 'the show'} at ${VENUES.find((v) => v.id === plan.venueId)?.label ?? 'the venue'}`
-                        : `${OCCASIONS[plan.occasion].label} · ${plan.near ? 'Near you' : AREAS.find((x) => x.id === plan.areaId)?.label}`}
+                        : `${OCCASIONS[plan.occasion].label} · ${plan.near ? 'Near you' : (AREAS.find((x) => x.id === plan.areaId)?.label ?? DEFAULT_AREA.label)}`}
                       {state.when ? ` · ${state.when}` : ''}
                     </p>
                     <h2
@@ -511,15 +547,17 @@ export function MatchApp() {
                       className="mt-1 animate-rewrite font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl"
                     >
                       {state.headline ??
-                        (plan.mode === 'one'
-                          ? `Tonight, ${a.name} & ${b.name} eat here.`
-                          : `Three tables ${a.name} & ${b.name} will both love.`)}
+                        `${['No', 'One', 'Two', 'Three'][visible.length] ?? 'Three'} ${visible.length === 1 ? 'table' : 'tables'} for ${aName} & ${bName} ${/tomorrow/i.test(state.when ?? '') ? 'tomorrow' : /today/i.test(state.when ?? '') ? 'today' : 'tonight'}.`}
                     </h2>
+                    {state.picks.length < 3 && (
+                      <p className="mt-2 text-sm text-ink-soft">
+                        Only {state.picks.length} places passed your filters — we don't pad the list.
+                      </p>
+                    )}
                     {state.relaxed && <p className="mt-2 text-sm text-ink-soft">{state.relaxed}</p>}
                     {state.pool && state.pool.skipped > 0 && (
                       <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-mint-soft px-3 py-1 text-xs font-semibold text-mint">
-                        Memory: skipped {state.pool.skipped} place{state.pool.skipped > 1 ? 's' : ''} {a.name} or {b.name} has already been
-                        to
+                        Memory: skipped {state.pool.skipped} place{state.pool.skipped > 1 ? 's' : ''} {aName} or {bName} has already been to
                       </p>
                     )}
                   </div>
@@ -535,12 +573,13 @@ export function MatchApp() {
                             pick={p}
                             index={i}
                             hero={plan.mode === 'one'}
-                            aName={a.name}
-                            bName={b.name}
+                            aName={aName}
+                            bName={bName}
                             chosen={chosen?.id === p.id}
                             when={state.when}
                             onChoose={() => choose(p)}
                             onAnother={() => another(p.id)}
+                            hasSpare={hasSpare}
                           />
                         );
                       })}
@@ -549,7 +588,7 @@ export function MatchApp() {
 
                   {state.contrast && (
                     <div className="mt-8">
-                      <ContrastPanel aName={a.name} bName={b.name} contrast={state.contrast} />
+                      <ContrastPanel aName={aName} bName={bName} contrast={state.contrast} />
                     </div>
                   )}
 
@@ -563,8 +602,8 @@ export function MatchApp() {
                           <thead>
                             <tr className="text-left text-xs text-ink-faint">
                               <th className="pb-2 font-medium">Place</th>
-                              <th className="pb-2 text-right font-medium text-a-deep">{a.name}</th>
-                              <th className="pb-2 text-right font-medium text-b-deep">{b.name}</th>
+                              <th className="pb-2 text-right font-medium text-a-deep">{aName}</th>
+                              <th className="pb-2 text-right font-medium text-b-deep">{bName}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -600,7 +639,7 @@ export function MatchApp() {
                         {state.pool && (
                           <li>
                             <span className="font-medium text-ink">Scored:</span> {state.pool.scored} places, each scored separately for{' '}
-                            {a.name} and for {b.name}
+                            {aName} and for {bName}
                             {state.stats ? ` in ${state.stats.qlooCalls + state.stats.cached} Qloo calls` : ''}.
                           </li>
                         )}
@@ -616,8 +655,8 @@ export function MatchApp() {
       <Celebration
         when={state.when}
         pick={celebrating ? chosen : null}
-        aName={a.name}
-        bName={b.name}
+        aName={aName}
+        bName={bName}
         onClose={() => setCelebrating(false)}
         onShare={() => copy(shareLink(), 'share')}
         copied={copied === 'share'}

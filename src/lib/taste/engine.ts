@@ -24,6 +24,8 @@ const RESULT_COUNT = 6;
 /** How long the picks wait for the vibe agent before keyword matching stands in. */
 const VIBE_BUDGET_MS = 3000;
 const VIBE_TIMEOUT = Symbol('vibe-timeout');
+/** No new Qloo request starts after this; keeps a stalled upstream inside the route's 60 s and yields a real error instead of a cut stream. */
+const RUN_BUDGET_MS = 35_000;
 
 /** Qloo's dish lists sometimes split one item at a comma ("Confit Duck Wings", "And Fries"); drop the fragments. */
 function cleanDishes(dishes: { name: string }[] | null | undefined): string[] {
@@ -158,7 +160,7 @@ export async function* runMatch(
   { narrateSpares = true, vibeBudgetMs = VIBE_BUDGET_MS } = {},
 ): AsyncGenerator<MatchEvent> {
   const t0 = now();
-  const stats: CallStats = { calls: 0, cached: 0 };
+  const stats: CallStats = { calls: 0, cached: 0, deadline: Date.now() + RUN_BUDGET_MS };
   const req = withShow(input);
   const occ = OCCASIONS[req.occasion];
   const when = planTime(req.occasion, new Date(), req.show ? dinnerBeforeDoors(req.show.doors) : undefined);

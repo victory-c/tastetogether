@@ -56,7 +56,7 @@ export function PersonPanel({
   return (
     <section
       className={clsx(
-        'relative flex flex-col gap-4 rounded-[28px] border bg-paper/90 p-5 shadow-card backdrop-blur sm:p-6',
+        'relative flex flex-col gap-4 rounded-[28px] border bg-paper/90 p-5 shadow-card sm:p-6',
         side === 'a' ? 'border-a/25' : 'border-b/25',
       )}
       aria-label={`${person.name}'s taste`}
