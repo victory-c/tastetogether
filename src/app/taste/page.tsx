@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AppHeader } from '@/components/AppHeader';
+import { SiteHeader } from '@/components/SiteHeader';
 import { History } from '@/components/taste/History';
 import { ProfileForm } from '@/components/taste/ProfileForm';
 import { Notice } from '@/components/ui';
@@ -42,9 +42,10 @@ function TasteContent() {
   }, []);
   return (
     <>
-      <AppHeader />
-      <main className="mx-auto max-w-2xl space-y-6 p-4 py-8">
-        <h1 className="text-3xl font-semibold">{copy.taste.title}</h1>
+      <SiteHeader compact />
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6">
+        <h1 className="font-display text-4xl font-semibold tracking-tight">{copy.taste.title}</h1>
+        <p className="text-ink-soft">Save a profile for dining history and rooms; the main match flow needs no profile.</p>
         {loading && <p role="status">{copy.taste.loading}</p>}
         {error && <Notice tone="error">{error}</Notice>}
         {!loading && !error && (

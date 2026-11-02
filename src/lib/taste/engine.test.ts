@@ -330,3 +330,39 @@ describe('runMatch availability and data hygiene', () => {
     expect(result.picks[0]!.dishes).toEqual(['Confit Duck Wings', 'Shrimp Toast']);
   });
 });
+
+describe('runMatch narration grounding', () => {
+  beforeEach(() => {
+    llm.on = true;
+    llm.vibe = null;
+    qloo.sameTaste = true;
+  });
+  afterEach(() => {
+    llm.on = false;
+    qloo.sameTaste = false;
+    llm.narrate.mockReset();
+  });
+
+  it('drops model lines that claim facts the model was never given, and says so in the trace', async () => {
+    llm.narrate.mockImplementation(async (facts) => ({
+      headline: 'h',
+      picks: facts.picks.map((p, i) => ({ id: p.id, why: i === 0 ? 'Dinner runs about $40 a head here.' : `Grounded line for ${p.name}` })),
+    }));
+    const events = await collect(REQ, { narrateSpares: false });
+    const sent = narrations(events).flatMap((n) => n.whys);
+    expect(sent.some((w) => /\$40/.test(w.why))).toBe(false);
+    expect(sent.length).toBeGreaterThan(0);
+    const result = resultOf(events);
+    expect(result.picks[0]!.why).not.toMatch(/\$40/);
+  });
+
+  it('keeps templates and reports a facts-check failure when every line is ungrounded', async () => {
+    llm.narrate.mockImplementation(async (facts) => ({
+      headline: 'h',
+      picks: facts.picks.map((p) => ({ id: p.id, why: 'Open until 11 pm with no wait.' })),
+    }));
+    const events = await collect(REQ, { narrateSpares: false });
+    expect(narrations(events)).toHaveLength(0);
+    expect((explainDone(events) as Extract<MatchEvent, { type: 'step' }> | undefined)?.detail).toMatch(/facts check/);
+  });
+});

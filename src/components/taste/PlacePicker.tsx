@@ -57,7 +57,7 @@ export function PlacePicker({
         </p>
       )}
       {error && <Notice tone="error">{error}</Notice>}
-      {searched && !results.length && <p className="text-sm text-stone-600">{copy.taste.noResults}</p>}
+      {searched && !results.length && <p className="text-sm text-ink-soft">{copy.taste.noResults}</p>}
       {results.length > 0 && (
         <ul className="space-y-1">
           {results.map((place) => (
@@ -73,7 +73,7 @@ export function PlacePicker({
               >
                 <span>
                   {place.name}
-                  <span className="block font-normal text-stone-600">{place.address || copy.taste.addressUnknown}</span>
+                  <span className="block font-normal text-ink-soft">{place.address || copy.taste.addressUnknown}</span>
                 </span>
               </Button>
             </li>

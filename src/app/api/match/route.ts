@@ -32,6 +32,8 @@ const schema = z.object({
   priceMax: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).nullable(),
   areaId: z.string().optional(),
   near: z.object({ lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) }).optional(),
+  /** Widen the search around the same point, e.g. 2 = double the preset radius. */
+  radiusScale: z.number().min(1).max(3).optional(),
   mode: z.enum(['three', 'one']),
   vibe: z.string().max(300).optional(),
   exclude: z
@@ -68,16 +70,17 @@ export async function POST(request: Request) {
   if (!allow(request, 'match', 60, 10 * 60_000) || !underDailyBudget()) {
     return Response.json({ error: 'Our taste buds need a breather. Please try again in a few minutes.' }, { status: 429 });
   }
-  const { areaId, near, show, ...rest } = parsed.data;
+  const { areaId, near, show, radiusScale, ...rest } = parsed.data;
   const venue = show && rest.occasion === 'show' ? VENUES.find((v) => v.id === show.venueId) : undefined;
   const area = venue
     ? venue
     : near
       ? { id: 'near-me', label: 'your meeting point', lat: near.lat, lon: near.lon, radius: 1800 }
       : (AREAS.find((a) => a.id === areaId) ?? DEFAULT_AREA);
+  const scaled = radiusScale && radiusScale > 1 ? { ...area, radius: Math.round(area.radius * radiusScale) } : area;
   const req: MatchRequest = {
     ...rest,
-    area,
+    area: scaled,
     show: venue && show ? { venueId: venue.id, venueLabel: venue.label, doors: show.doors, performer: show.performer } : undefined,
   };
 

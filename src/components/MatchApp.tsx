@@ -61,6 +61,7 @@ const DEFAULT_PLAN: Plan = {
 export function MatchApp() {
   const params = useSearchParams();
   const router = useRouter();
+  const [searchOpen, setSearchOpen] = useState(false);
   const [a, setA] = useState<Person>(EMPTY_A);
   const [b, setB] = useState<Person>(EMPTY_B);
   const [plan, setPlan] = useState<Plan>(DEFAULT_PLAN);
@@ -159,9 +160,9 @@ export function MatchApp() {
   }, []);
 
   const start = useCallback(
-    (pa: Person, pb: Person, pl: Plan, exclude: string[] = [], fresh = false) => {
+    (pa: Person, pb: Person, pl: Plan, exclude: string[] = [], fresh = false, radiusScale?: number) => {
       setFetchingMore(fresh);
-      const body = bodyFor(pa, pb, pl, exclude);
+      const body = { ...bodyFor(pa, pb, pl, exclude), ...(radiusScale ? { radiusScale } : {}) };
       setLastBody(body);
       setVisible([]);
       setUsed(exclude);
@@ -360,12 +361,13 @@ export function MatchApp() {
               )}
 
               <div className="relative grid gap-4 lg:grid-cols-2 lg:gap-6">
-                <PersonPanel side="a" person={a} onChange={setA} locked={Boolean(invitedBy)} />
+                <PersonPanel onSearchOpenChange={setSearchOpen} side="a" person={a} onChange={setA} locked={Boolean(invitedBy)} />
                 <div className="pointer-events-none absolute top-1/2 left-1/2 z-10 hidden size-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-paper font-display text-xl italic shadow-card ring-1 ring-line lg:grid">
                   &amp;
                 </div>
                 <PersonPanel
                   side="b"
+                  onSearchOpenChange={setSearchOpen}
                   person={b}
                   onChange={setB}
                   isYou={Boolean(invitedBy)}
@@ -387,7 +389,7 @@ export function MatchApp() {
               </div>
 
               <div className="mt-4 lg:mt-6">
-                <PlanControls plan={plan} onChange={setPlan} />
+                <PlanControls plan={plan} onChange={setPlan} onSearchOpenChange={setSearchOpen} />
               </div>
 
               {history.length > 0 && (
@@ -412,7 +414,12 @@ export function MatchApp() {
                 </p>
               )}
 
-              <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-cream/85 px-4 py-3 backdrop-blur-md sm:static sm:mt-6 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+              <div
+                className={clsx(
+                  searchOpen && 'hidden sm:block',
+                  'fixed inset-x-0 bottom-0 z-40 border-t border-line bg-cream/85 px-4 py-3 backdrop-blur-md sm:static sm:mt-6 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none',
+                )}
+              >
                 <div className="mx-auto flex max-w-6xl items-center gap-3">
                   <button
                     type="button"
@@ -449,7 +456,7 @@ export function MatchApp() {
                   }}
                   className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3.5 py-2 text-sm font-semibold transition hover:border-ink/30"
                 >
-                  <ArrowLeft className="size-4" /> Edit tastes
+                  <ArrowLeft className="size-4" /> Edit tastes &amp; plan
                 </button>
                 <div className="flex items-center gap-2">
                   {state.phase === 'done' && (
@@ -474,7 +481,11 @@ export function MatchApp() {
               </div>
 
               <div className="grid items-start gap-4 lg:grid-cols-[1.25fr_1fr] lg:gap-6">
-                <TasteVenn dna={state.dna} a={{ ...a, name: aName }} b={{ ...b, name: bName }} />
+                <div className="overflow-x-auto">
+                  <div className="min-w-[480px]">
+                    <TasteVenn dna={state.dna} a={{ ...a, name: aName }} b={{ ...b, name: bName }} />
+                  </div>
+                </div>
                 <AgentTrace
                   steps={state.steps}
                   running={state.phase === 'running' || (state.phase === 'done' && state.steps.some((s) => s.status === 'running'))}
@@ -519,6 +530,28 @@ export function MatchApp() {
                         className="rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-cream"
                       >
                         Drop the budget &amp; vibe filters
+                      </button>
+                    )}
+                    {state.error.status === 'no_match' && (
+                      <button
+                        type="button"
+                        onClick={() => start(a, b, plan, [], false, 2)}
+                        className="rounded-full border border-line bg-paper px-4 py-2.5 text-sm font-semibold"
+                      >
+                        Widen the area
+                      </button>
+                    )}
+                    {state.error.status === 'no_match' && plan.priceMax !== null && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const relaxedPlan = { ...plan, priceMax: null };
+                          setPlan(relaxedPlan);
+                          start(a, b, relaxedPlan);
+                        }}
+                        className="rounded-full border border-line bg-paper px-4 py-2.5 text-sm font-semibold"
+                      >
+                        Remove the price limit
                       </button>
                     )}
                     <button

@@ -101,7 +101,7 @@ export function ConstraintsForm({
           <p className="text-sm">{copy.room.relaxationsNote}</p>
           <div className="flex flex-wrap gap-2">
             {value.relaxations.map((r) => (
-              <span key={r} className="inline-flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-sm">
+              <span key={r} className="inline-flex items-center gap-2 rounded-full bg-cream px-3 py-1 text-sm">
                 {copy.relaxations[r]}
                 <Button
                   type="button"

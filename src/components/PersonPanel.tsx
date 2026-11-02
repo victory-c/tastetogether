@@ -22,8 +22,10 @@ export function PersonPanel({
   locked,
   footer,
   isYou,
+  onSearchOpenChange,
 }: {
   isYou?: boolean;
+  onSearchOpenChange?: (open: boolean) => void;
   side: 'a' | 'b';
   person: Person;
   onChange: (p: Person) => void;
@@ -98,6 +100,7 @@ export function PersonPanel({
       {!locked && (
         <TasteSearch
           side={side}
+          onOpenChange={onSearchOpenChange}
           onPick={add}
           disabled={full}
           placeholder={full ? "That's plenty of taste!" : 'Add an artist, film, show or book…'}

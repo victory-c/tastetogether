@@ -1,7 +1,9 @@
 'use client';
 
 import clsx from 'clsx';
-import { Clock, LocateFixed, MapPin, Mic2, Sparkles, X } from 'lucide-react';
+import { ChevronDown, Clock, LocateFixed, MapPin, Mic2, Sparkles, X } from 'lucide-react';
+
+import type { KeyboardEvent } from 'react';
 
 import { formatClock } from '@/lib/taste/hours';
 import { AREAS, DEFAULT_AREA, OCCASIONS, VENUES } from '@/lib/taste/occasions';
@@ -30,8 +32,29 @@ const PRICES: { v: Plan['priceMax']; label: string }[] = [
   { v: null, label: 'Any' },
 ];
 
-export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Plan) => void }) {
+export function PlanControls({
+  plan,
+  onChange,
+  onSearchOpenChange,
+}: {
+  plan: Plan;
+  onChange: (p: Plan) => void;
+  onSearchOpenChange?: (open: boolean) => void;
+}) {
   const set = <K extends keyof Plan>(k: K, v: Plan[K]) => onChange({ ...plan, [k]: v });
+
+  const navigateRadio = (event: KeyboardEvent<HTMLDivElement>) => {
+    const direction =
+      event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+    if (!direction) return;
+    const radios = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]'));
+    const index = radios.indexOf(document.activeElement as HTMLButtonElement);
+    if (index < 0) return;
+    event.preventDefault();
+    const next = radios[(index + direction + radios.length) % radios.length];
+    next?.focus();
+    next?.click();
+  };
 
   const locate = () => {
     if (!navigator.geolocation) return;
@@ -46,7 +69,12 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
     <section className="rounded-[28px] border border-line bg-paper/90 p-5 shadow-card sm:p-6" aria-label="The plan">
       <h2 className="font-display text-xl font-semibold tracking-tight">What&apos;s the plan?</h2>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="radiogroup" aria-label="Occasion">
+      <div
+        className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
+        role="radiogroup"
+        aria-label="Occasion"
+        onKeyDown={navigateRadio}
+      >
         {(Object.keys(OCCASIONS) as Occasion[]).map((k) => {
           const o = OCCASIONS[k];
           const on = plan.occasion === k;
@@ -56,6 +84,7 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
               type="button"
               role="radio"
               aria-checked={on}
+              tabIndex={on ? 0 : -1}
               onClick={() => set('occasion', k)}
               className={clsx(
                 'rounded-2xl border px-3.5 py-3 text-left transition',
@@ -82,18 +111,21 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
               >
                 <MapPin className="size-3.5" /> Venue
               </label>
-              <select
-                id="venue"
-                value={plan.venueId}
-                onChange={(e) => set('venueId', e.target.value)}
-                className="w-full appearance-none rounded-xl border border-line bg-cream/60 px-3 py-2.5 text-sm font-medium outline-none focus:border-ink/40"
-              >
-                {VENUES.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.label.charAt(0).toUpperCase() + v.label.slice(1)}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  id="venue"
+                  value={plan.venueId}
+                  onChange={(e) => set('venueId', e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-line bg-cream/60 py-2.5 pr-9 pl-3 text-sm font-medium outline-none focus:border-ink/40"
+                >
+                  {VENUES.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label.charAt(0).toUpperCase() + v.label.slice(1)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-ink-soft" />
+              </div>
             </div>
             <div>
               <label
@@ -102,18 +134,21 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
               >
                 <Clock className="size-3.5" /> Doors
               </label>
-              <select
-                id="doors"
-                value={plan.doors}
-                onChange={(e) => set('doors', Number(e.target.value))}
-                className="w-full appearance-none rounded-xl border border-line bg-cream/60 px-3 py-2.5 text-sm font-medium outline-none focus:border-ink/40"
-              >
-                {DOORS.map((d) => (
-                  <option key={d} value={d}>
-                    {formatClock(d)}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  id="doors"
+                  value={plan.doors}
+                  onChange={(e) => set('doors', Number(e.target.value))}
+                  className="w-full appearance-none rounded-xl border border-line bg-cream/60 py-2.5 pr-9 pl-3 text-sm font-medium outline-none focus:border-ink/40"
+                >
+                  {DOORS.map((d) => (
+                    <option key={d} value={d}>
+                      {formatClock(d)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-ink-soft" />
+              </div>
             </div>
           </div>
         ) : (
@@ -122,19 +157,22 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
               <MapPin className="size-3.5" /> Meet around
             </label>
             <div className="flex gap-2">
-              <select
-                id="area"
-                value={plan.near ? 'near-me' : plan.areaId}
-                onChange={(e) => onChange({ ...plan, areaId: e.target.value, near: undefined })}
-                className="w-full appearance-none rounded-xl border border-line bg-cream/60 px-3 py-2.5 text-sm font-medium outline-none focus:border-ink/40"
-              >
-                {plan.near && <option value="near-me">📍 Near me</option>}
-                {AREAS.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.label}
-                  </option>
-                ))}
-              </select>
+              <div className="relative min-w-0 flex-1">
+                <select
+                  id="area"
+                  value={plan.near ? 'near-me' : plan.areaId}
+                  onChange={(e) => onChange({ ...plan, areaId: e.target.value, near: undefined })}
+                  className="w-full appearance-none rounded-xl border border-line bg-cream/60 py-2.5 pr-9 pl-3 text-sm font-medium outline-none focus:border-ink/40"
+                >
+                  {plan.near && <option value="near-me">📍 Near me</option>}
+                  {AREAS.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-ink-soft" />
+              </div>
               <button
                 type="button"
                 onClick={locate}
@@ -149,13 +187,19 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
         )}
         <div>
           <span className="mb-1.5 block text-xs font-semibold tracking-wide text-ink-soft uppercase">Budget</span>
-          <div className="flex rounded-xl border border-line bg-cream/60 p-1" role="radiogroup" aria-label="Budget">
+          <div
+            className="flex rounded-xl border border-line bg-cream/60 p-1"
+            role="radiogroup"
+            aria-label="Budget"
+            onKeyDown={navigateRadio}
+          >
             {PRICES.map((p) => (
               <button
                 key={p.label}
                 type="button"
                 role="radio"
                 aria-checked={plan.priceMax === p.v}
+                tabIndex={plan.priceMax === p.v ? 0 : -1}
                 onClick={() => set('priceMax', p.v)}
                 className={clsx(
                   'flex-1 rounded-lg py-1.5 text-sm font-semibold transition',
@@ -188,7 +232,12 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
               </button>
             </div>
           ) : (
-            <TasteSearch side="b" onPick={(i) => set('performer', i)} placeholder="Search the artist or show (optional)" />
+            <TasteSearch
+              side="b"
+              onOpenChange={onSearchOpenChange}
+              onPick={(i) => set('performer', i)}
+              placeholder="Search the artist or show (optional)"
+            />
           )}
           <p className="mt-1.5 text-xs text-ink-faint">
             We plan dinner for {formatClock(plan.doors - 105 - ((plan.doors - 105) % 15))}, so you&apos;re fed and seated before doors.
@@ -211,7 +260,12 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
         <p className="mt-1.5 text-xs text-ink-faint">The agent translates this into real Qloo place tags before it searches.</p>
       </div>
 
-      <div className="mt-5 flex rounded-2xl border border-line bg-cream/60 p-1" role="radiogroup" aria-label="Decision mode">
+      <div
+        className="mt-5 flex rounded-2xl border border-line bg-cream/60 p-1"
+        role="radiogroup"
+        aria-label="Decision mode"
+        onKeyDown={navigateRadio}
+      >
         {(
           [
             { v: 'three', label: 'Show me 3 options' },
@@ -223,6 +277,7 @@ export function PlanControls({ plan, onChange }: { plan: Plan; onChange: (p: Pla
             type="button"
             role="radio"
             aria-checked={plan.mode === m.v}
+            tabIndex={plan.mode === m.v ? 0 : -1}
             onClick={() => set('mode', m.v)}
             className={clsx(
               'flex-1 rounded-xl py-2.5 text-sm font-semibold transition',

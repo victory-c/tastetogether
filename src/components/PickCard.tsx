@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import { ArrowUpRight, Check, ChevronDown, Footprints, MapPin, RefreshCw, Utensils, Volume2 } from 'lucide-react';
 import { useState } from 'react';
 
-import { KIND_EMOJI, openLabel, ordinalFit, price, walkMinutes } from '@/lib/client/format';
+import { KIND_EMOJI, openLabel, price, walkMinutes } from '@/lib/client/format';
 import type { PersonFit, Pick } from '@/lib/taste/types';
 
 function FitMeter({ side, name, fit }: { side: 'a' | 'b'; name: string; fit: PersonFit }) {
@@ -22,7 +22,7 @@ function FitMeter({ side, name, fit }: { side: 'a' | 'b'; name: string; fit: Per
               side === 'a' ? 'bg-a-soft text-a-deep' : 'bg-b-soft text-b-deep',
             )}
           >
-            {ordinalFit(fit.rank, fit.of)}
+            Fit: top {Math.max(1, Math.ceil((fit.rank / fit.of) * 100))}%
           </span>
         </span>
         <span className="shrink-0 text-xs text-ink-soft tabular-nums">
@@ -126,11 +126,9 @@ export function PickCard({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink/55 via-transparent to-transparent" />
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-          {hero && (
-            <span className="bg-duo rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow">Fairest pick for you both</span>
-          )}
+          {hero && <span className="bg-duo rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow">Our pick</span>}
           {!hero && index === 0 && (
-            <span className="bg-duo rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow">Best match</span>
+            <span className="bg-duo rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow">Best for both</span>
           )}
         </div>
         <div className="absolute right-3 bottom-3 left-3 flex flex-wrap items-center gap-1.5">
@@ -239,7 +237,7 @@ export function PickCard({
           <div className="rounded-2xl bg-cream/80 p-4 text-xs leading-relaxed text-ink-soft ring-1 ring-line">
             <p>
               <span className="font-semibold text-ink">Qloo taste signals.</span> We asked Qloo to score every candidate for {aName}&apos;s
-              and {bName}&apos;s favorites separately, then removed the popularity effect so a famous spot can&apos;t win by default.
+              and {bName}&apos;s favorites separately, then factored out popularity so a famous spot can&apos;t win by default.
             </p>
             {[
               { n: aName, f: pick.fitA },
